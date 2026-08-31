@@ -1,0 +1,14 @@
+{
+  "name": "auth",
+  "version": "1.0.0",
+  "description": "Phase 0 auth spike — validate QOBUZ_USER_TOKEN",
+  "type": "module",
+  "scripts": {
+    "start": "node run.mjs"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@kud/qobuz": "^0.5.5",
+    "dotenv": "^17.4.2"
+  }
+}

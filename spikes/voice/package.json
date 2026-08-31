@@ -1,0 +1,20 @@
+{
+  "name": "voice",
+  "version": "1.0.0",
+  "description": "Phase 0 voice spike — Qobuz CDN → ffmpeg → @discordjs/voice",
+  "type": "module",
+  "scripts": {
+    "start": "node run.mjs",
+    "list-channels": "node list-channels.mjs"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "@kud/qobuz": "^0.5.5",
+    "@snazzah/davey": "^0.1.12",
+    "discord.js": "^14.22.1",
+    "dotenv": "^17.4.2",
+    "libsodium-wrappers": "^0.7.15",
+    "opusscript": "^0.1.1"
+  }
+}

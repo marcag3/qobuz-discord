@@ -1,0 +1,16 @@
+{
+  "name": "search",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@kud/qobuz": "^0.5.5",
+    "dotenv": "^17.4.2"
+  }
+}
