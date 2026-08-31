@@ -1,5 +1,6 @@
 import type { Transport } from "@kud/qobuz"
 import { toQobuzError } from "./auth.js"
+import { MAX_EXPANSION_TRACKS } from "./constants.js"
 import type { PopularItem, Track } from "./types.js"
 
 type RawTrack = {
@@ -24,18 +25,24 @@ function mapTrack(raw: RawTrack): Track | null {
 }
 
 export async function expandToTracks(transport: Transport, item: PopularItem): Promise<Track[]> {
+  let tracks: Track[]
   switch (item.type) {
     case "tracks":
-      return expandTrack(transport, item)
+      tracks = await expandTrack(transport, item)
+      break
     case "albums":
-      return expandAlbum(transport, item)
+      tracks = await expandAlbum(transport, item)
+      break
     case "artists":
-      return expandArtist(transport, item)
+      tracks = await expandArtist(transport, item)
+      break
     case "playlists":
-      return expandPlaylist(transport, item)
+      tracks = await expandPlaylist(transport, item)
+      break
     default:
       throw toQobuzError(new Error(`unsupported type ${item.type}`), "Unsupported search result type")
   }
+  return tracks.slice(0, MAX_EXPANSION_TRACKS)
 }
 
 async function expandTrack(transport: Transport, item: PopularItem): Promise<Track[]> {
@@ -101,7 +108,7 @@ async function expandPlaylist(transport: Transport, item: PopularItem): Promise<
     const raw = (await transport.get("playlist/get", {
       playlist_id: String(item.id),
       extra: "tracks",
-      limit: 500,
+      limit: MAX_EXPANSION_TRACKS,
     })) as {
       tracks?: { items?: RawTrack[] } | RawTrack[]
     }

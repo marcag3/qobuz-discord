@@ -1,9 +1,13 @@
 import type { Track } from "../qobuz/types.js"
+import { MAX_QUEUE_SIZE, QueueFullError } from "./limits.js"
 
 export class GuildQueue {
   private readonly items: Track[] = []
 
   enqueue(tracks: Track[]): void {
+    if (this.items.length + tracks.length > MAX_QUEUE_SIZE) {
+      throw new QueueFullError(MAX_QUEUE_SIZE)
+    }
     this.items.push(...tracks)
   }
 

@@ -1,6 +1,7 @@
 import {
   Client,
   GatewayIntentBits,
+  GuildMember,
   MessageFlags,
   type Interaction,
   type TextChannel,
@@ -22,6 +23,7 @@ import {
   formatTrackList,
 } from "./messages.js"
 import { registerCommands } from "./register-commands.js"
+import { assertPlaybackControl } from "./permissions.js"
 import { userFacingError } from "./errors.js"
 
 export type BotHandle = {
@@ -147,6 +149,15 @@ async function handleButton(
   nowPlayingMessages: Map<string, string>
 ): Promise<void> {
   if (!interaction.isButton() || !interaction.guildId) return
+
+  const member = interaction.member
+  if (!(member instanceof GuildMember)) return
+
+  const denied = assertPlaybackControl(member, player, interaction.guildId)
+  if (denied) {
+    await interaction.reply({ content: denied, flags: MessageFlags.Ephemeral })
+    return
+  }
 
   switch (interaction.customId) {
     case CONTROL_IDS.skip:

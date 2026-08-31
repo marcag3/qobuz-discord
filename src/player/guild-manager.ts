@@ -57,6 +57,10 @@ export class GuildPlayerManager {
     return this.queueManager.forGuild(guildId).list()
   }
 
+  getVoiceChannelId(guildId: string): string | null {
+    return this.sessions.get(guildId)?.connection.joinConfig.channelId ?? null
+  }
+
   async enqueueAndPlay(guildId: string, channel: VoiceBasedChannel, tracks: Track[]): Promise<void> {
     const queue = this.queueManager.forGuild(guildId)
     queue.enqueue(tracks)

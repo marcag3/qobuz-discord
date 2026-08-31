@@ -11,7 +11,28 @@ import type { PopularItem } from "../../qobuz/types.js"
 import { userFacingError } from "../errors.js"
 import { buildSearchSelectOptions, parseSearchSelection } from "../search-menu.js"
 
-const pendingSelections = new Map<string, PopularItem[]>()
+const SELECTION_TTL_MS = 10 * 60 * 1000
+
+type PendingSelection = {
+  items: PopularItem[]
+  expiresAt: number
+}
+
+const pendingSelections = new Map<string, PendingSelection>()
+
+function setPendingSelection(userId: string, items: PopularItem[]): void {
+  pendingSelections.set(userId, { items, expiresAt: Date.now() + SELECTION_TTL_MS })
+}
+
+function getPendingSelection(userId: string): PopularItem[] | null {
+  const entry = pendingSelections.get(userId)
+  if (!entry) return null
+  if (Date.now() > entry.expiresAt) {
+    pendingSelections.delete(userId)
+    return null
+  }
+  return entry.items
+}
 
 export async function handleSearch(
   interaction: ChatInputCommandInteraction,
@@ -27,7 +48,7 @@ export async function handleSearch(
       return
     }
 
-    pendingSelections.set(interaction.user.id, result.mostPopular)
+    setPendingSelection(interaction.user.id, result.mostPopular)
 
     const menu = new StringSelectMenuBuilder()
       .setCustomId("search:select")
@@ -46,7 +67,7 @@ export async function handleSearchSelect(
   qobuz: QobuzService,
   player: GuildPlayerManager
 ): Promise<void> {
-  const items = pendingSelections.get(interaction.user.id)
+  const items = getPendingSelection(interaction.user.id)
   const selected = items ? parseSearchSelection(interaction.values[0], items) : null
 
   if (!selected) {

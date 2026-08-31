@@ -3,6 +3,7 @@ import { fetchAppId } from "@kud/qobuz"
 import type { AppConfig } from "../config.js"
 import { QOBUZ_BASE_URL, QOBUZ_USER_AGENT } from "./constants.js"
 import { toQobuzError } from "./auth.js"
+import { assertAllowedStreamUrl } from "./stream-url.js"
 import { QobuzError, type QobuzCredentials, type StreamInfo } from "./types.js"
 
 export function signTrackFileUrl(
@@ -131,7 +132,8 @@ export async function fetchStreamUrl(
   const body = await res.text()
   if (!res.ok) {
     const kind = res.status === 401 ? "auth" : "unknown"
-    throw new QobuzError(`getFileUrl failed (${res.status}): ${body.slice(0, 200)}`, {
+    console.error(`getFileUrl failed (${res.status}):`, body.slice(0, 200))
+    throw new QobuzError("Failed to fetch stream URL", {
       status: res.status,
       kind,
     })
@@ -141,6 +143,8 @@ export async function fetchStreamUrl(
   if (!parsed.url) {
     throw toQobuzError(new Error("no url"), "Qobuz returned no stream URL")
   }
+
+  assertAllowedStreamUrl(parsed.url)
 
   return {
     url: parsed.url,

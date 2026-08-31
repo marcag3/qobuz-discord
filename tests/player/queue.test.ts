@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { GuildQueue, QueueManager } from "../../src/player/queue.js"
+import { MAX_QUEUE_SIZE, QueueFullError } from "../../src/player/limits.js"
 
 describe("GuildQueue", () => {
   const track = { id: 1, title: "A", artistName: "Artist" }
@@ -17,6 +18,17 @@ describe("GuildQueue", () => {
     queue.enqueue([track])
     queue.clear()
     expect(queue.isEmpty()).toBe(true)
+  })
+
+  it("rejects enqueue when queue is full", () => {
+    const queue = new GuildQueue()
+    const tracks = Array.from({ length: MAX_QUEUE_SIZE }, (_, i) => ({
+      id: i,
+      title: `Track ${i}`,
+      artistName: "Artist",
+    }))
+    queue.enqueue(tracks)
+    expect(() => queue.enqueue([track])).toThrow(QueueFullError)
   })
 })
 

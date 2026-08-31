@@ -1,10 +1,31 @@
+import { GuildMember } from "discord.js"
 import { QobuzError } from "../qobuz/types.js"
+import { QueueFullError } from "../player/limits.js"
+
+const GENERIC_ERROR = "Something went wrong. Try again later."
 
 export function userFacingError(err: unknown): string {
   if (QobuzError.isAuthError(err)) {
     return "Qobuz session expired — refresh `QOBUZ_USER_TOKEN` in `.env` and restart the bot."
   }
 
-  if (err instanceof Error) return err.message
-  return "Something went wrong."
+  if (err instanceof QueueFullError) {
+    return err.message
+  }
+
+  if (err instanceof Error && err.message === "Invalid Qobuz URL") {
+    return err.message
+  }
+
+  console.error("Request failed:", err)
+  return GENERIC_ERROR
+}
+
+export function canControlPlayback(member: GuildMember, botVoiceChannelId: string | null): boolean {
+  if (!botVoiceChannelId) return true
+  return member.voice.channelId === botVoiceChannelId
+}
+
+export function playbackDeniedMessage(): string {
+  return "Join the bot's voice channel to control playback."
 }
