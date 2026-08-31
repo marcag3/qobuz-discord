@@ -82,12 +82,12 @@ async function expandArtist(transport: Transport, item: PopularItem): Promise<Tr
   try {
     const raw = (await transport.get("artist/get", {
       artist_id: String(item.id),
-      extra: "albums",
+      extra: "tracks",
       limit: 50,
     })) as {
-      top_tracks?: { items?: RawTrack[] } | RawTrack[]
+      tracks?: { items?: RawTrack[] } | RawTrack[]
     }
-    const tracks = (Array.isArray(raw.top_tracks) ? raw.top_tracks : raw.top_tracks?.items) ?? []
+    const tracks = (Array.isArray(raw.tracks) ? raw.tracks : raw.tracks?.items) ?? []
     const mapped = tracks.map(mapTrack).filter((t): t is Track => t !== null)
     if (mapped.length > 0) return mapped
   } catch (err) {

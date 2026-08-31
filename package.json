@@ -14,24 +14,24 @@
     "lint": "eslint src tests"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "license": "ISC",
   "dependencies": {
     "@discordjs/voice": "^0.19.2",
     "@kud/qobuz": "^0.5.5",
     "@snazzah/davey": "^0.1.12",
-    "discord.js": "^14.22.1",
+    "discord.js": "^14.27.0",
     "dotenv": "^17.4.2",
-    "libsodium-wrappers": "^0.7.15",
+    "libsodium-wrappers": "^0.8.4",
     "opusscript": "^0.1.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "@types/node": "^22.19.1",
-    "eslint": "^9.39.1",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.48.0",
-    "vitest": "^3.2.4"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.3",
+    "eslint": "^10.9.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.68.0",
+    "vitest": "^4.1.11"
   }
 }
