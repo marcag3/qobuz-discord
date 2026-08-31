@@ -1,0 +1,9 @@
+.env
+node_modules
+dist
+.git
+spikes/**/node_modules
+*.md
+!README.md
+tests
+docs

@@ -1,0 +1,22 @@
+{
+  "most_popular": {
+    "items": [
+      {
+        "type": "artists",
+        "content": {
+          "id": 123456,
+          "name": "Lane 8",
+          "title": "Lane 8"
+        }
+      },
+      {
+        "type": "tracks",
+        "content": {
+          "id": 424991621,
+          "title": "Strobe",
+          "performer": { "name": "Deadmau5" }
+        }
+      }
+    ]
+  }
+}

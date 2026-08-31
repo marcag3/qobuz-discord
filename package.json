@@ -1,0 +1,38 @@
+{
+  "name": "qobuz-discord",
+  "version": "1.0.0",
+  "description": "Private Discord bot that streams from a single premium Qobuz account",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "lint": "eslint src tests"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "@kud/qobuz": "^0.5.5",
+    "@snazzah/davey": "^0.1.12",
+    "discord.js": "^14.22.1",
+    "dotenv": "^17.4.2",
+    "ffmpeg-static": "^5.2.0",
+    "libsodium-wrappers": "^0.7.15",
+    "opusscript": "^0.1.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^22.19.1",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vitest": "^3.2.4"
+  }
+}

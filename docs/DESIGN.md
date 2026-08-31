@@ -12,7 +12,7 @@
 |-------|-------|
 | Stack decision | ✅ Custom monolith (discord.js + Qobuz client + ffmpeg) |
 | Phase 0 spikes | ✅ All done — see [SPIKE_RESULTS.md](./SPIKE_RESULTS.md) |
-| Phase 1+ implementation | ⬜ Ready to start |
+| Phase 1+ implementation | ✅ MVP + polish complete |
 
 ## Overview
 
@@ -474,18 +474,18 @@ Validate assumptions with throwaway scripts in `spikes/`. Record results in [SPI
 
 ### Phase 1 — MVP
 
-- [ ] Project scaffold (TypeScript, discord.js, Docker)
-- [ ] Qobuz client: transport + `most_popular` search + `expandToTracks` (album/artist/playlist)
-- [ ] `/search` with select menu (`most_popular` only)
-- [ ] `/play` with URL support + **always play `most_popular` #1**
-- [ ] `/skip`, `/queue`, `/stop`
-- [ ] In-memory per-guild queue
-- [ ] ffmpeg → Opus playback pipeline
+- [x] Project scaffold (TypeScript, discord.js, Docker)
+- [x] Qobuz client: transport + `most_popular` search + `expandToTracks` (album/artist/playlist)
+- [x] `/search` with select menu (`most_popular` only)
+- [x] `/play` with URL support + **always play `most_popular` #1**
+- [x] `/skip`, `/queue`, `/stop`
+- [x] In-memory per-guild queue
+- [x] ffmpeg → Opus playback pipeline
 
 ### Phase 2 — Polish
 
-- [ ] Now Playing embed with Skip / Stop / Queue buttons
-- [ ] Error messages and reconnect on voice disconnect
+- [x] Now Playing embed with Skip / Stop / Queue buttons
+- [x] Error messages and reconnect on voice disconnect
 - [ ] Optional: re-rank fallback if `most_popular` proves wrong in the field
 
 ### Phase 3 — Optional polish
