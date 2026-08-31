@@ -74,7 +74,7 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
     },
   })
 
-  client.once("ready", () => {
+  client.once("clientReady", () => {
     console.log(`Logged in as ${client.user?.tag}`)
   })
 

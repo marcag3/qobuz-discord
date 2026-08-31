@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process"
-import ffmpegPath from "ffmpeg-static"
+import { resolveFfmpegPath } from "../ffmpeg.js"
 import {
   createAudioPlayer,
   createAudioResource,
@@ -201,8 +201,8 @@ export class GuildPlayerManager {
   }
 
   private createFfmpegStream(url: string): ChildProcess {
-    const ffmpeg = String(ffmpegPath ?? "ffmpeg")
-    return spawn(
+    const ffmpeg = resolveFfmpegPath()
+    const proc = spawn(
       ffmpeg,
       [
         "-hide_banner",
@@ -223,6 +223,17 @@ export class GuildPlayerManager {
       ],
       { stdio: ["ignore", "pipe", "pipe"] }
     )
+
+    proc.on("error", (err) => {
+      console.error(`ffmpeg spawn error (${ffmpeg}):`, err.message)
+    })
+    proc.on("close", (code, signal) => {
+      if (code !== 0 || signal) {
+        console.error(`ffmpeg exited code=${code ?? "null"} signal=${signal ?? "null"}`)
+      }
+    })
+
+    return proc
   }
 
   private killFfmpeg(session: GuildSession): void {
