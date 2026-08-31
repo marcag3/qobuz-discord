@@ -1,9 +1,28 @@
-.env
+# Dependencies and build output (rebuilt in the image)
 node_modules
 dist
+
+# Secrets and local env
+.env
+.env.*
+
+# Git, CI, and editor
 .git
-spikes/**/node_modules
-*.md
-!README.md
+.github
+.cursor
+.gitignore
+
+# Tests, docs, and dev tooling
 tests
 docs
+coverage
+*.md
+eslint.config.js
+vitest.config.ts
+vitest.integration.config.ts
+
+# Spikes, compose, and Docker metadata (not copied into the image)
+spikes
+docker-compose.yml
+Dockerfile
+.dockerignore

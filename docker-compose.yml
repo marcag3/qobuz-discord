@@ -1,5 +1,5 @@
 services:
   bot:
-    build: .
+    image: ghcr.io/marcag3/qobuz-discord:latest
     restart: unless-stopped
     env_file: .env
