@@ -90,7 +90,12 @@ export async function handleSearchSelect(
       return
     }
 
-    await player.enqueueAndPlay(interaction.guildId!, member.voice.channel, tracks)
+    await player.enqueueAndPlay(
+      interaction.guildId!,
+      member.voice.channel,
+      tracks,
+      interaction.channelId
+    )
     const first = tracks[0]
     const extra = tracks.length > 1 ? ` (+${tracks.length - 1} queued)` : ""
     await interaction.editReply(`Queued **${first.title}** — ${first.artistName}${extra}`)

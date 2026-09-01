@@ -35,39 +35,41 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
   await qobuz.init()
 
   const queueManager = new QueueManager()
-  const nowPlayingMessages = new Map<string, string>()
+  type NowPlayingMessage = { channelId: string; messageId: string }
+  const nowPlayingMessages = new Map<string, NowPlayingMessage>()
 
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
   })
 
   const player = new GuildPlayerManager(qobuz, queueManager, {
-    onTrackStart: async (guildId, track) => {
-      const guild = await client.guilds.fetch(guildId).catch(() => null)
-      if (!guild) return
+    onTrackStart: async (guildId, track, textChannelId) => {
+      if (!textChannelId) return
 
-      const channel = guild.systemChannel ?? guild.channels.cache.find((c) => c.isTextBased())
+      const channel = await client.channels.fetch(textChannelId).catch(() => null)
       if (!channel?.isTextBased()) return
 
       const embed = buildNowPlayingEmbed(track)
       const row = buildControlRow()
 
-      const previousId = nowPlayingMessages.get(guildId)
-      if (previousId) {
-        await channel.messages.delete(previousId).catch(() => undefined)
+      const previous = nowPlayingMessages.get(guildId)
+      if (previous) {
+        const prevChannel = await client.channels.fetch(previous.channelId).catch(() => null)
+        if (prevChannel?.isTextBased()) {
+          await prevChannel.messages.delete(previous.messageId).catch(() => undefined)
+        }
       }
 
       const message = await (channel as TextChannel).send({ embeds: [embed], components: [row] })
-      nowPlayingMessages.set(guildId, message.id)
+      nowPlayingMessages.set(guildId, { channelId: textChannelId, messageId: message.id })
     },
     onIdle: async (guildId) => {
-      const messageId = nowPlayingMessages.get(guildId)
-      if (!messageId) return
+      const entry = nowPlayingMessages.get(guildId)
+      if (!entry) return
 
-      const guild = await client.guilds.fetch(guildId).catch(() => null)
-      const channel = guild?.systemChannel ?? guild?.channels.cache.find((c) => c.isTextBased())
+      const channel = await client.channels.fetch(entry.channelId).catch(() => null)
       if (channel?.isTextBased()) {
-        await channel.messages.delete(messageId).catch(() => undefined)
+        await channel.messages.delete(entry.messageId).catch(() => undefined)
       }
       nowPlayingMessages.delete(guildId)
     },
@@ -99,7 +101,7 @@ async function handleInteraction(
   interaction: Interaction,
   qobuz: ReturnType<typeof createQobuzClient>,
   player: GuildPlayerManager,
-  nowPlayingMessages: Map<string, string>
+  nowPlayingMessages: Map<string, { channelId: string; messageId: string }>
 ): Promise<void> {
   try {
     if (interaction.isChatInputCommand()) {
@@ -146,7 +148,7 @@ async function handleInteraction(
 async function handleButton(
   interaction: Interaction,
   player: GuildPlayerManager,
-  nowPlayingMessages: Map<string, string>
+  nowPlayingMessages: Map<string, { channelId: string; messageId: string }>
 ): Promise<void> {
   if (!interaction.isButton() || !interaction.guildId) return
 
@@ -170,7 +172,6 @@ async function handleButton(
       break
     case CONTROL_IDS.stop:
       await player.stop(interaction.guildId)
-      nowPlayingMessages.delete(interaction.guildId)
       await interaction.reply({ content: "Stopped.", flags: MessageFlags.Ephemeral })
       break
     case CONTROL_IDS.queue: {

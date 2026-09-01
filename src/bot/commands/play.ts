@@ -38,7 +38,7 @@ export async function handlePlay(
       return
     }
 
-    await player.enqueueAndPlay(interaction.guildId!, channel, tracks)
+    await player.enqueueAndPlay(interaction.guildId!, channel, tracks, interaction.channelId)
 
     const first = tracks[0]
     const extra = tracks.length > 1 ? ` (+${tracks.length - 1} queued)` : ""

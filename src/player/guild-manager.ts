@@ -16,9 +16,9 @@ import type { QobuzClient, Track } from "../qobuz/types.js"
 import { QueueManager } from "./queue.js"
 
 export type PlaybackCallbacks = {
-  onTrackStart?: (guildId: string, track: Track) => void | Promise<void>
+  onTrackStart?: (guildId: string, track: Track, textChannelId: string | null) => void | Promise<void>
   onTrackEnd?: (guildId: string, track: Track) => void | Promise<void>
-  onIdle?: (guildId: string) => void | Promise<void>
+  onIdle?: (guildId: string, textChannelId: string | null) => void | Promise<void>
   onError?: (guildId: string, error: Error) => void | Promise<void>
 }
 
@@ -27,6 +27,7 @@ type GuildSession = {
   player: AudioPlayer
   ffmpeg: ChildProcess | null
   currentTrack: Track | null
+  textChannelId: string | null
 }
 
 export class GuildPlayerManager {
@@ -61,16 +62,27 @@ export class GuildPlayerManager {
     return this.sessions.get(guildId)?.connection.joinConfig.channelId ?? null
   }
 
-  async enqueueAndPlay(guildId: string, channel: VoiceBasedChannel, tracks: Track[]): Promise<void> {
+  async enqueueAndPlay(
+    guildId: string,
+    channel: VoiceBasedChannel,
+    tracks: Track[],
+    textChannelId?: string | null
+  ): Promise<void> {
     const queue = this.queueManager.forGuild(guildId)
     queue.enqueue(tracks)
 
     const session = this.sessions.get(guildId)
     if (session?.player.state.status === AudioPlayerStatus.Playing) {
+      if (textChannelId) {
+        session.textChannelId = textChannelId
+      }
       return
     }
 
-    await this.ensureConnection(guildId, channel)
+    const connected = await this.ensureConnection(guildId, channel)
+    if (textChannelId) {
+      connected.textChannelId = textChannelId
+    }
     await this.playNext(guildId)
   }
 
@@ -88,10 +100,12 @@ export class GuildPlayerManager {
     this.queueManager.clearGuild(guildId)
 
     if (session) {
+      const textChannelId = session.textChannelId
       this.killFfmpeg(session)
       session.player.stop(true)
       session.connection.destroy()
       this.sessions.delete(guildId)
+      await this.callbacks.onIdle?.(guildId, textChannelId)
     }
   }
 
@@ -147,7 +161,7 @@ export class GuildPlayerManager {
       void this.playNext(guildId)
     })
 
-    session = { connection, player, ffmpeg: null, currentTrack: null }
+    session = { connection, player, ffmpeg: null, currentTrack: null, textChannelId: null }
     this.sessions.set(guildId, session)
 
     await entersState(connection, VoiceConnectionStatus.Ready, 30_000)
@@ -169,11 +183,12 @@ export class GuildPlayerManager {
     const queue = this.queueManager.forGuild(guildId)
     const next = queue.dequeue()
     if (!next) {
+      const textChannelId = session.textChannelId
       session.currentTrack = null
       this.killFfmpeg(session)
       session.connection.destroy()
       this.sessions.delete(guildId)
-      await this.callbacks.onIdle?.(guildId)
+      await this.callbacks.onIdle?.(guildId, textChannelId)
       return
     }
 
@@ -196,7 +211,7 @@ export class GuildPlayerManager {
 
       session.player.play(resource)
       await entersState(session.player, AudioPlayerStatus.Playing, 15_000)
-      await this.callbacks.onTrackStart?.(guildId, next)
+      await this.callbacks.onTrackStart?.(guildId, next, session.textChannelId)
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err))
       await this.callbacks.onError?.(guildId, error)
