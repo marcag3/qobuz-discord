@@ -11,7 +11,6 @@ export const CONTROL_IDS = {
   previous: "np:previous",
   pause: "np:pause",
   next: "np:next",
-  skip: "np:skip",
   shuffle: "np:shuffle",
   loop: "np:loop",
   stop: "np:stop",
@@ -82,9 +81,19 @@ export function buildControlRows(state: PlaybackState): ActionRowBuilder<ButtonB
   return [transport, options]
 }
 
-/** @deprecated Use buildControlRows instead */
-export function buildControlRow(): ActionRowBuilder<ButtonBuilder> {
-  return buildControlRows({ loopMode: "off", shuffle: false, paused: false })[0]
+function formatUpcomingList(tracks: Track[], emptyLabel: string): string {
+  if (tracks.length === 0) return emptyLabel
+
+  const lines = tracks.slice(0, 10).map((t, i) => `${i + 1}. ${t.title} — ${t.artistName}`)
+  let text = lines.join("\n")
+  if (tracks.length > 10) text += `\n+${tracks.length - 10} more`
+  return text
+}
+
+export function formatQueueText(current: Track | null, upcoming: Track[]): string {
+  const upcomingText = formatUpcomingList(upcoming, "Queue is empty.")
+  if (!current) return upcomingText
+  return `**Now playing:** ${current.title} — ${current.artistName}\n\n${upcomingText}`
 }
 
 export function buildQueueEmbed(tracks: Track[], current?: Track | null): EmbedBuilder {
@@ -97,22 +106,6 @@ export function buildQueueEmbed(tracks: Track[], current?: Track | null): EmbedB
     })
   }
 
-  if (tracks.length === 0) {
-    embed.setDescription("No upcoming tracks.")
-    return embed
-  }
-
-  const lines = tracks.slice(0, 10).map((t, i) => `${i + 1}. ${t.title} — ${t.artistName}`)
-  embed.setDescription(lines.join("\n"))
-  if (tracks.length > 10) embed.setFooter({ text: `+${tracks.length - 10} more` })
-
+  embed.setDescription(formatUpcomingList(tracks, "No upcoming tracks."))
   return embed
-}
-
-export function formatTrackList(tracks: Track[]): string {
-  if (tracks.length === 0) return "Queue is empty."
-  return tracks
-    .slice(0, 10)
-    .map((t, i) => `${i + 1}. ${t.title} — ${t.artistName}`)
-    .join("\n")
 }

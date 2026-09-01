@@ -20,13 +20,12 @@ import {
   type LoopMode,
   type PlaybackState,
 } from "./playback-state.js"
-import { QueueManager } from "./queue.js"
+import { QueueManager, shuffleInPlace } from "./queue.js"
 
 const MAX_HISTORY_SIZE = 50
 
 export type PlaybackCallbacks = {
   onTrackStart?: (guildId: string, track: Track, textChannelId: string | null) => void | Promise<void>
-  onTrackEnd?: (guildId: string, track: Track) => void | Promise<void>
   onIdle?: (guildId: string, textChannelId: string | null) => void | Promise<void>
   onError?: (guildId: string, error: Error) => void | Promise<void>
   onPlaybackStateChange?: (
@@ -105,7 +104,7 @@ export class GuildPlayerManager {
 
     const batch = [...tracks]
     if (existingSession?.shuffle) {
-      shuffleTracks(batch)
+      shuffleInPlace(batch)
     }
 
     queue.enqueue(batch)
@@ -148,7 +147,7 @@ export class GuildPlayerManager {
 
   async stop(guildId: string): Promise<void> {
     const session = this.sessions.get(guildId)
-    this.queueManager.clearGuild(guildId)
+    this.queueManager.removeGuild(guildId)
 
     if (session) {
       const textChannelId = session.textChannelId
@@ -295,10 +294,6 @@ export class GuildPlayerManager {
   }
 
   private async onTrackFinished(guildId: string): Promise<void> {
-    const session = this.sessions.get(guildId)
-    if (session?.currentTrack) {
-      await this.callbacks.onTrackEnd?.(guildId, session.currentTrack)
-    }
     await this.playNext(guildId)
   }
 
@@ -441,12 +436,5 @@ export class GuildPlayerManager {
     if (session.history.length > MAX_HISTORY_SIZE) {
       session.history.shift()
     }
-  }
-}
-
-function shuffleTracks(tracks: Track[]): void {
-  for (let i = tracks.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[tracks[i], tracks[j]] = [tracks[j], tracks[i]]
   }
 }

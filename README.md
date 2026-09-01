@@ -19,12 +19,12 @@ There is no maintained bot that streams Qobuz directly into Discord voice. The a
 | Download-then-play bots | Write files to disk instead of live voice streaming |
 | Qobuz search APIs | Poor ranking for natural-language queries — auto-playing result #1 plays the wrong track |
 
-This bot keeps the deployment model simple and sidesteps search pain with a `/search` picker so users choose the right track instead of trusting rank #1.
+This bot keeps the deployment model simple and uses `/play` autocomplete so users pick the right result instead of trusting rank #1.
 
 ## Features
 
-- **Qobuz catalog search** with a select menu (`/search`)
-- **Direct play** from a query or Qobuz URL (`/play`)
+- **Qobuz catalog search** with autocomplete on `/play`
+- **Direct play** from a search query or Qobuz URL (`/play`)
 - **Queue management** — skip, view queue, stop
 - **Now Playing** embed with inline controls
 - **Single process** — discord.js, Qobuz client, and ffmpeg in one container (~128–256 MB RAM)
@@ -104,14 +104,13 @@ In the Discord Developer Portal, create an OAuth2 invite URL with:
 - Scopes: **bot**, **applications.commands**
 - Bot permissions: **Connect**, **Speak**, **Use Voice Activity**
 
-Add the bot to your server, join a voice channel, and run `/search` or `/play`.
+Add the bot to your server, join a voice channel, and run `/play`.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/search <query>` | Search Qobuz and pick a track from a menu |
-| `/play <query\|url>` | Play a search query or Qobuz track/album URL |
+| `/play <query\|url>` | Search Qobuz (autocomplete) or play a Qobuz track/album URL |
 | `/skip` | Skip to the next track |
 | `/queue` | Show upcoming tracks |
 | `/stop` | Stop playback and clear the queue |

@@ -3,6 +3,7 @@ import {
   GatewayIntentBits,
   GuildMember,
   MessageFlags,
+  type ButtonInteraction,
   type Interaction,
   type VoiceState,
 } from "discord.js"
@@ -15,7 +16,7 @@ import { handlePlay } from "./commands/play.js"
 import { handleSkip } from "./commands/skip.js"
 import { handleQueue } from "./commands/queue.js"
 import { handleStop } from "./commands/stop.js"
-import { CONTROL_IDS, formatTrackList } from "./messages.js"
+import { CONTROL_IDS, formatQueueText } from "./messages.js"
 import { handleAutocomplete } from "./autocomplete.js"
 import { clearNowPlaying, updateNowPlaying, type NowPlayingRegistry } from "./now-playing.js"
 import { registerCommands } from "./register-commands.js"
@@ -190,74 +191,70 @@ async function handleButton(
 
   const denied = assertPlaybackControl(member, player, interaction.guildId)
   if (denied) {
-    await interaction.reply({ content: denied, flags: MessageFlags.Ephemeral })
+    await replyEphemeral(interaction, denied)
     return
   }
 
+  const guildId = interaction.guildId
+
   switch (interaction.customId) {
     case CONTROL_IDS.pause: {
-      if (!player.isPlaying(interaction.guildId)) {
-        await interaction.reply({ content: "Nothing is playing.", flags: MessageFlags.Ephemeral })
-        return
-      }
-      const ok = await player.togglePause(interaction.guildId)
+      if (!(await requirePlaying(interaction, player))) return
+      const ok = await player.togglePause(guildId)
       if (!ok) {
-        await interaction.reply({ content: "Nothing is playing.", flags: MessageFlags.Ephemeral })
+        await replyEphemeral(interaction, "Nothing is playing.")
         return
       }
       await interaction.deferUpdate()
       break
     }
-    case CONTROL_IDS.skip:
     case CONTROL_IDS.next:
-      if (!player.isPlaying(interaction.guildId)) {
-        await interaction.reply({ content: "Nothing is playing.", flags: MessageFlags.Ephemeral })
-        return
-      }
-      await player.skip(interaction.guildId)
-      await interaction.reply({ content: "Skipped.", flags: MessageFlags.Ephemeral })
+      if (!(await requirePlaying(interaction, player))) return
+      await player.skip(guildId)
+      await replyEphemeral(interaction, "Skipped.")
       break
     case CONTROL_IDS.previous:
-      if (!player.isPlaying(interaction.guildId)) {
-        await interaction.reply({ content: "Nothing is playing.", flags: MessageFlags.Ephemeral })
-        return
-      }
-      if (!(await player.previous(interaction.guildId))) {
-        await interaction.reply({ content: "No previous track.", flags: MessageFlags.Ephemeral })
+      if (!(await requirePlaying(interaction, player))) return
+      if (!(await player.previous(guildId))) {
+        await replyEphemeral(interaction, "No previous track.")
         return
       }
       await interaction.deferUpdate()
       break
-    case CONTROL_IDS.shuffle: {
-      if (!player.isPlaying(interaction.guildId)) {
-        await interaction.reply({ content: "Nothing is playing.", flags: MessageFlags.Ephemeral })
-        return
-      }
-      await player.toggleShuffle(interaction.guildId)
+    case CONTROL_IDS.shuffle:
+      if (!(await requirePlaying(interaction, player))) return
+      await player.toggleShuffle(guildId)
       await interaction.deferUpdate()
       break
-    }
-    case CONTROL_IDS.loop: {
-      if (!player.isPlaying(interaction.guildId)) {
-        await interaction.reply({ content: "Nothing is playing.", flags: MessageFlags.Ephemeral })
-        return
-      }
-      await player.cycleLoop(interaction.guildId)
+    case CONTROL_IDS.loop:
+      if (!(await requirePlaying(interaction, player))) return
+      await player.cycleLoop(guildId)
       await interaction.deferUpdate()
       break
-    }
     case CONTROL_IDS.stop:
-      await player.stop(interaction.guildId)
-      await interaction.reply({ content: "Stopped.", flags: MessageFlags.Ephemeral })
+      await player.stop(guildId)
+      await replyEphemeral(interaction, "Stopped.")
       break
     case CONTROL_IDS.queue: {
-      const current = player.getCurrentTrack(interaction.guildId)
-      const upcoming = player.getUpcomingTracks(interaction.guildId)
-      const text = current
-        ? `**Now playing:** ${current.title} — ${current.artistName}\n\n${formatTrackList(upcoming)}`
-        : formatTrackList(upcoming)
-      await interaction.reply({ content: text, flags: MessageFlags.Ephemeral })
+      const current = player.getCurrentTrack(guildId)
+      const upcoming = player.getUpcomingTracks(guildId)
+      await replyEphemeral(interaction, formatQueueText(current, upcoming))
       break
     }
   }
+}
+
+async function replyEphemeral(interaction: ButtonInteraction, content: string): Promise<void> {
+  await interaction.reply({ content, flags: MessageFlags.Ephemeral })
+}
+
+async function requirePlaying(
+  interaction: ButtonInteraction,
+  player: GuildPlayerManager
+): Promise<boolean> {
+  if (!player.isPlaying(interaction.guildId!)) {
+    await replyEphemeral(interaction, "Nothing is playing.")
+    return false
+  }
+  return true
 }

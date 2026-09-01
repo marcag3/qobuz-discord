@@ -7,7 +7,13 @@ import { isQobuzUrl } from "../../qobuz/url.js"
 import type { GuildPlayerManager } from "../../player/guild-manager.js"
 import type { QobuzService } from "../../qobuz/client.js"
 import { userFacingError } from "../errors.js"
-import { resolveQueryToTracks } from "./resolver.js"
+
+async function resolveQueryToTracks(qobuz: QobuzService, query: string) {
+  const result = await qobuz.search(query)
+  const top = result.mostPopular[0]
+  if (!top) return []
+  return qobuz.expandToTracks(top)
+}
 
 export async function handlePlay(
   interaction: ChatInputCommandInteraction,

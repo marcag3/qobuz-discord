@@ -18,6 +18,10 @@ type RawTrack = {
   duration?: number
 }
 
+type RawTracksResponse = {
+  tracks?: { items?: RawTrack[] } | RawTrack[]
+}
+
 function albumCoverUrl(album?: { image?: RawAlbumImage }): string | undefined {
   const image = album?.image
   if (!image) return undefined
@@ -35,6 +39,28 @@ function mapTrack(raw: RawTrack): Track | null {
     durationSeconds: raw.duration,
     albumCoverUrl: albumCoverUrl(raw.album),
   }
+}
+
+function mapTracks(raw: RawTracksResponse): Track[] {
+  const items = (Array.isArray(raw.tracks) ? raw.tracks : raw.tracks?.items) ?? []
+  return items.map(mapTrack).filter((track): track is Track => track !== null)
+}
+
+async function expandTrackCollection(
+  transport: Transport,
+  endpoint: string,
+  params: Record<string, string | number>,
+  failMessage: string,
+  emptyMessage: string
+): Promise<Track[]> {
+  try {
+    const raw = (await transport.get(endpoint, params)) as RawTracksResponse
+    const mapped = mapTracks(raw)
+    if (mapped.length > 0) return mapped
+  } catch (err) {
+    throw toQobuzError(err, failMessage)
+  }
+  throw toQobuzError(new Error("empty collection"), emptyMessage)
 }
 
 export async function expandToTracks(transport: Transport, item: PopularItem): Promise<Track[]> {
@@ -85,53 +111,33 @@ async function expandTrack(transport: Transport, item: PopularItem): Promise<Tra
 }
 
 async function expandAlbum(transport: Transport, item: PopularItem): Promise<Track[]> {
-  try {
-    const raw = (await transport.get("album/get", { album_id: String(item.id) })) as {
-      tracks?: { items?: RawTrack[] } | RawTrack[]
-    }
-    const tracks = (Array.isArray(raw.tracks) ? raw.tracks : raw.tracks?.items) ?? []
-    const mapped = tracks.map(mapTrack).filter((t): t is Track => t !== null)
-    if (mapped.length > 0) return mapped
-  } catch (err) {
-    throw toQobuzError(err, `Failed to load album ${item.id}`)
-  }
-  throw toQobuzError(new Error("empty album"), `Album ${item.id} has no tracks`)
+  return expandTrackCollection(
+    transport,
+    "album/get",
+    { album_id: String(item.id) },
+    `Failed to load album ${item.id}`,
+    `Album ${item.id} has no tracks`
+  )
 }
 
 async function expandArtist(transport: Transport, item: PopularItem): Promise<Track[]> {
-  try {
-    const raw = (await transport.get("artist/get", {
-      artist_id: String(item.id),
-      extra: "tracks",
-      limit: 50,
-    })) as {
-      tracks?: { items?: RawTrack[] } | RawTrack[]
-    }
-    const tracks = (Array.isArray(raw.tracks) ? raw.tracks : raw.tracks?.items) ?? []
-    const mapped = tracks.map(mapTrack).filter((t): t is Track => t !== null)
-    if (mapped.length > 0) return mapped
-  } catch (err) {
-    throw toQobuzError(err, `Failed to load artist ${item.id}`)
-  }
-  throw toQobuzError(new Error("empty artist"), `Artist ${item.id} has no top tracks`)
+  return expandTrackCollection(
+    transport,
+    "artist/get",
+    { artist_id: String(item.id), extra: "tracks", limit: 50 },
+    `Failed to load artist ${item.id}`,
+    `Artist ${item.id} has no top tracks`
+  )
 }
 
 async function expandPlaylist(transport: Transport, item: PopularItem): Promise<Track[]> {
-  try {
-    const raw = (await transport.get("playlist/get", {
-      playlist_id: String(item.id),
-      extra: "tracks",
-      limit: MAX_EXPANSION_TRACKS,
-    })) as {
-      tracks?: { items?: RawTrack[] } | RawTrack[]
-    }
-    const tracks = (Array.isArray(raw.tracks) ? raw.tracks : raw.tracks?.items) ?? []
-    const mapped = tracks.map(mapTrack).filter((t): t is Track => t !== null)
-    if (mapped.length > 0) return mapped
-  } catch (err) {
-    throw toQobuzError(err, `Failed to load playlist ${item.id}`)
-  }
-  throw toQobuzError(new Error("empty playlist"), `Playlist ${item.id} has no tracks`)
+  return expandTrackCollection(
+    transport,
+    "playlist/get",
+    { playlist_id: String(item.id), extra: "tracks", limit: MAX_EXPANSION_TRACKS },
+    `Failed to load playlist ${item.id}`,
+    `Playlist ${item.id} has no tracks`
+  )
 }
 
 export function popularItemFromUrl(parsed: { type: PopularItem["type"]; id: number; title?: string }): PopularItem {

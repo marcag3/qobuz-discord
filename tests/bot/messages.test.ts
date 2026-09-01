@@ -42,9 +42,15 @@ describe("messages", () => {
   it("defines stable control button ids", () => {
     expect(CONTROL_IDS.previous).toBe("np:previous")
     expect(CONTROL_IDS.next).toBe("np:next")
-    expect(CONTROL_IDS.skip).toBe("np:skip")
     expect(CONTROL_IDS.pause).toBe("np:pause")
     expect(CONTROL_IDS.shuffle).toBe("np:shuffle")
     expect(CONTROL_IDS.loop).toBe("np:loop")
+  })
+
+  it("formats queue text with current track", async () => {
+    const { formatQueueText } = await import("../../src/bot/messages.js")
+    const text = formatQueueText(track, [])
+    expect(text).toContain("**Now playing:** Bohemian Rhapsody")
+    expect(text).toContain("Queue is empty.")
   })
 })

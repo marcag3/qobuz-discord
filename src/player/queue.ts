@@ -1,6 +1,13 @@
 import type { Track } from "../qobuz/types.js"
 import { MAX_QUEUE_SIZE, QueueFullError } from "./limits.js"
 
+export function shuffleInPlace<T>(items: T[]): void {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[items[i], items[j]] = [items[j], items[i]]
+  }
+}
+
 export class GuildQueue {
   private readonly items: Track[] = []
 
@@ -43,10 +50,7 @@ export class GuildQueue {
   }
 
   shuffle(): void {
-    for (let i = this.items.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[this.items[i], this.items[j]] = [this.items[j], this.items[i]]
-    }
+    shuffleInPlace(this.items)
   }
 
   replaceAll(tracks: Track[]): void {
@@ -65,10 +69,6 @@ export class QueueManager {
       this.queues.set(guildId, queue)
     }
     return queue
-  }
-
-  clearGuild(guildId: string): void {
-    this.forGuild(guildId).clear()
   }
 
   removeGuild(guildId: string): void {
