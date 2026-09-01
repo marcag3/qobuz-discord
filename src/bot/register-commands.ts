@@ -3,16 +3,6 @@ import type { AppConfig } from "../config.js"
 
 const commands = [
   new SlashCommandBuilder()
-    .setName("search")
-    .setDescription("Search Qobuz and pick a result")
-    .addStringOption((opt) =>
-      opt
-        .setName("query")
-        .setDescription("Song, artist, or album")
-        .setRequired(true)
-        .setAutocomplete(true)
-    ),
-  new SlashCommandBuilder()
     .setName("play")
     .setDescription("Play the top Qobuz result or a Qobuz URL")
     .addStringOption((opt) =>

@@ -15,7 +15,6 @@ import { handlePlay } from "./commands/play.js"
 import { handleSkip } from "./commands/skip.js"
 import { handleQueue } from "./commands/queue.js"
 import { handleStop } from "./commands/stop.js"
-import { handleSearch, handleSearchSelect } from "./commands/search.js"
 import { CONTROL_IDS, formatTrackList } from "./messages.js"
 import { handleAutocomplete } from "./autocomplete.js"
 import { clearNowPlaying, updateNowPlaying, type NowPlayingRegistry } from "./now-playing.js"
@@ -152,9 +151,6 @@ async function handleInteraction(
         case "play":
           await handlePlay(interaction, qobuz, player)
           break
-        case "search":
-          await handleSearch(interaction, qobuz)
-          break
         case "skip":
           await handleSkip(interaction, player)
           break
@@ -165,11 +161,6 @@ async function handleInteraction(
           await handleStop(interaction, player)
           break
       }
-      return
-    }
-
-    if (interaction.isStringSelectMenu() && interaction.customId === "search:select") {
-      await handleSearchSelect(interaction, qobuz, player)
       return
     }
 
