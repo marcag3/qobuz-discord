@@ -15,6 +15,13 @@ export class GuildQueue {
     return this.items.shift()
   }
 
+  prepend(track: Track): void {
+    if (this.items.length >= MAX_QUEUE_SIZE) {
+      throw new QueueFullError(MAX_QUEUE_SIZE)
+    }
+    this.items.unshift(track)
+  }
+
   peek(): Track | undefined {
     return this.items[0]
   }

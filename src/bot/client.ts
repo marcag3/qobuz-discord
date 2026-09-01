@@ -218,12 +218,24 @@ async function handleButton(
       break
     }
     case CONTROL_IDS.skip:
+    case CONTROL_IDS.next:
       if (!player.isPlaying(interaction.guildId)) {
         await interaction.reply({ content: "Nothing is playing.", flags: MessageFlags.Ephemeral })
         return
       }
       await player.skip(interaction.guildId)
       await interaction.reply({ content: "Skipped.", flags: MessageFlags.Ephemeral })
+      break
+    case CONTROL_IDS.previous:
+      if (!player.isPlaying(interaction.guildId)) {
+        await interaction.reply({ content: "Nothing is playing.", flags: MessageFlags.Ephemeral })
+        return
+      }
+      if (!(await player.previous(interaction.guildId))) {
+        await interaction.reply({ content: "No previous track.", flags: MessageFlags.Ephemeral })
+        return
+      }
+      await interaction.deferUpdate()
       break
     case CONTROL_IDS.shuffle: {
       if (!player.isPlaying(interaction.guildId)) {

@@ -13,21 +13,24 @@ describe("messages", () => {
 
   it("builds now playing embed with thumbnail and duration", () => {
     const embed = buildNowPlayingEmbed(track)
-    expect(embed.data.title).toBe("Now Playing")
-    expect(embed.data.description).toContain("Bohemian Rhapsody")
+    expect(embed.data.author?.name).toBe("Now Playing")
+    expect(embed.data.title).toBe("Bohemian Rhapsody")
+    expect(embed.data.description).toBe("Queen")
     expect(embed.data.thumbnail?.url).toBe("https://example.com/cover.jpg")
     expect(embed.data.footer?.text).toContain("5:54")
   })
 
   it("builds control rows with dynamic labels", () => {
     const paused = buildControlRows({ loopMode: "track", shuffle: true, paused: true })
-    expect(paused[0].components[0].data.label).toBe("Resume")
-    expect(paused[0].components[2].data.label).toBe("Shuffle On")
-    expect(paused[0].components[3].data.label).toBe("Loop: Track")
+    expect(paused[0].components[0].data.label).toBe("⏮ Previous")
+    expect(paused[0].components[1].data.label).toBe("▶ Resume")
+    expect(paused[0].components[2].data.label).toBe("Next ⏭")
+    expect(paused[1].components[0].data.label).toBe("🔀 Shuffle On")
+    expect(paused[1].components[1].data.label).toBe("Loop: Track")
 
     const playing = buildControlRows({ loopMode: "off", shuffle: false, paused: false })
-    expect(playing[0].components[0].data.label).toBe("Pause")
-    expect(playing[0].components[3].data.label).toBe("Loop: Off")
+    expect(playing[0].components[1].data.label).toBe("⏸ Pause")
+    expect(playing[1].components[1].data.label).toBe("Loop: Off")
   })
 
   it("builds queue embed with current track", async () => {
@@ -37,6 +40,8 @@ describe("messages", () => {
   })
 
   it("defines stable control button ids", () => {
+    expect(CONTROL_IDS.previous).toBe("np:previous")
+    expect(CONTROL_IDS.next).toBe("np:next")
     expect(CONTROL_IDS.skip).toBe("np:skip")
     expect(CONTROL_IDS.pause).toBe("np:pause")
     expect(CONTROL_IDS.shuffle).toBe("np:shuffle")

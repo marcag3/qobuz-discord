@@ -22,6 +22,8 @@ import {
 } from "./playback-state.js"
 import { QueueManager } from "./queue.js"
 
+const MAX_HISTORY_SIZE = 50
+
 export type PlaybackCallbacks = {
   onTrackStart?: (guildId: string, track: Track, textChannelId: string | null) => void | Promise<void>
   onTrackEnd?: (guildId: string, track: Track) => void | Promise<void>
@@ -44,8 +46,10 @@ type GuildSession = {
   loopMode: LoopMode
   shuffle: boolean
   loopSnapshot: Track[]
+  history: Track[]
   paused: boolean
   advanceRequested: boolean
+  backRequested: boolean
 }
 
 export class GuildPlayerManager {
@@ -132,6 +136,16 @@ export class GuildPlayerManager {
     return true
   }
 
+  async previous(guildId: string): Promise<boolean> {
+    const session = this.sessions.get(guildId)
+    if (!session?.currentTrack || session.history.length === 0) return false
+
+    session.backRequested = true
+    this.killFfmpeg(session)
+    session.player.stop(true)
+    return true
+  }
+
   async stop(guildId: string): Promise<void> {
     const session = this.sessions.get(guildId)
     this.queueManager.clearGuild(guildId)
@@ -139,6 +153,7 @@ export class GuildPlayerManager {
     if (session) {
       const textChannelId = session.textChannelId
       session.loopSnapshot = []
+      session.history = []
       this.killFfmpeg(session)
       session.player.stop(true)
       session.connection.destroy()
@@ -268,8 +283,10 @@ export class GuildPlayerManager {
       loopMode: "off",
       shuffle: false,
       loopSnapshot: [],
+      history: [],
       paused: false,
       advanceRequested: false,
+      backRequested: false,
     }
     this.sessions.set(guildId, session)
 
@@ -287,6 +304,16 @@ export class GuildPlayerManager {
 
   private resolveNextTrack(guildId: string, session: GuildSession): Track | null {
     const queue = this.queueManager.forGuild(guildId)
+
+    if (session.backRequested) {
+      session.backRequested = false
+      const previous = session.history.pop()
+      if (!previous) return null
+      if (session.currentTrack) {
+        queue.prepend(session.currentTrack)
+      }
+      return previous
+    }
 
     if (session.advanceRequested) {
       session.advanceRequested = false
@@ -318,6 +345,9 @@ export class GuildPlayerManager {
     const session = this.sessions.get(guildId)
     if (!session) return
 
+    const previousTrack = session.currentTrack
+    const wasGoingBack = session.backRequested
+    const wasSkipping = session.advanceRequested
     const next = this.resolveNextTrack(guildId, session)
     if (!next) {
       const textChannelId = session.textChannelId
@@ -327,6 +357,10 @@ export class GuildPlayerManager {
       this.sessions.delete(guildId)
       await this.callbacks.onIdle?.(guildId, textChannelId)
       return
+    }
+
+    if (previousTrack && !wasGoingBack && (wasSkipping || previousTrack.id !== next.id)) {
+      this.pushHistory(session, previousTrack)
     }
 
     this.killFfmpeg(session)
@@ -398,6 +432,15 @@ export class GuildPlayerManager {
       session.ffmpeg.kill("SIGKILL")
     }
     session.ffmpeg = null
+  }
+
+  private pushHistory(session: GuildSession, track: Track): void {
+    const last = session.history[session.history.length - 1]
+    if (last?.id === track.id) return
+    session.history.push(track)
+    if (session.history.length > MAX_HISTORY_SIZE) {
+      session.history.shift()
+    }
   }
 }
 

@@ -8,7 +8,9 @@ import type { Track } from "../qobuz/types.js"
 import { loopModeLabel, type PlaybackState } from "../player/playback-state.js"
 
 export const CONTROL_IDS = {
+  previous: "np:previous",
   pause: "np:pause",
+  next: "np:next",
   skip: "np:skip",
   shuffle: "np:shuffle",
   loop: "np:loop",
@@ -26,8 +28,9 @@ function formatDuration(seconds?: number): string | undefined {
 export function buildNowPlayingEmbed(track: Track): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0x3a9bdc)
-    .setTitle("Now Playing")
-    .setDescription(`**${track.title}**\n${track.artistName}`)
+    .setAuthor({ name: "Now Playing" })
+    .setTitle(track.title)
+    .setDescription(track.artistName)
 
   if (track.albumCoverUrl) {
     embed.setThumbnail(track.albumCoverUrl)
@@ -42,28 +45,41 @@ export function buildNowPlayingEmbed(track: Track): EmbedBuilder {
 }
 
 export function buildControlRows(state: PlaybackState): ActionRowBuilder<ButtonBuilder>[] {
-  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+  const transport = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(CONTROL_IDS.previous)
+      .setLabel("⏮ Previous")
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(CONTROL_IDS.pause)
-      .setLabel(state.paused ? "Resume" : "Pause")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(CONTROL_IDS.skip).setLabel("Skip").setStyle(ButtonStyle.Primary),
+      .setLabel(state.paused ? "▶ Resume" : "⏸ Pause")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(CONTROL_IDS.next)
+      .setLabel("Next ⏭")
+      .setStyle(ButtonStyle.Secondary)
+  )
+
+  const options = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(CONTROL_IDS.shuffle)
-      .setLabel(state.shuffle ? "Shuffle On" : "Shuffle")
+      .setLabel(state.shuffle ? "🔀 Shuffle On" : "🔀 Shuffle")
       .setStyle(state.shuffle ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(CONTROL_IDS.loop)
       .setLabel(loopModeLabel(state.loopMode))
-      .setStyle(state.loopMode !== "off" ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setStyle(state.loopMode !== "off" ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(CONTROL_IDS.queue)
+      .setLabel("📋 Queue")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(CONTROL_IDS.stop)
+      .setLabel("⏹ Stop")
+      .setStyle(ButtonStyle.Danger)
   )
 
-  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(CONTROL_IDS.queue).setLabel("Queue").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(CONTROL_IDS.stop).setLabel("Stop").setStyle(ButtonStyle.Danger)
-  )
-
-  return [row1, row2]
+  return [transport, options]
 }
 
 /** @deprecated Use buildControlRows instead */
