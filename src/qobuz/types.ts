@@ -13,6 +13,7 @@ export type Track = {
   artistName: string
   albumTitle?: string
   durationSeconds?: number
+  albumCoverUrl?: string
 }
 
 export type StreamInfo = {

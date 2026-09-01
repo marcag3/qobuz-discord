@@ -13,6 +13,13 @@ import {
 } from "@discordjs/voice"
 import type { VoiceBasedChannel } from "discord.js"
 import type { QobuzClient, Track } from "../qobuz/types.js"
+import {
+  createPlaybackState,
+  cycleLoopMode,
+  toggleShuffle,
+  type LoopMode,
+  type PlaybackState,
+} from "./playback-state.js"
 import { QueueManager } from "./queue.js"
 
 export type PlaybackCallbacks = {
@@ -20,6 +27,12 @@ export type PlaybackCallbacks = {
   onTrackEnd?: (guildId: string, track: Track) => void | Promise<void>
   onIdle?: (guildId: string, textChannelId: string | null) => void | Promise<void>
   onError?: (guildId: string, error: Error) => void | Promise<void>
+  onPlaybackStateChange?: (
+    guildId: string,
+    track: Track,
+    textChannelId: string | null,
+    state: PlaybackState
+  ) => void | Promise<void>
 }
 
 type GuildSession = {
@@ -28,6 +41,11 @@ type GuildSession = {
   ffmpeg: ChildProcess | null
   currentTrack: Track | null
   textChannelId: string | null
+  loopMode: LoopMode
+  shuffle: boolean
+  loopSnapshot: Track[]
+  paused: boolean
+  advanceRequested: boolean
 }
 
 export class GuildPlayerManager {
@@ -62,24 +80,42 @@ export class GuildPlayerManager {
     return this.sessions.get(guildId)?.connection.joinConfig.channelId ?? null
   }
 
+  getPlaybackState(guildId: string): PlaybackState {
+    const session = this.sessions.get(guildId)
+    if (!session) return createPlaybackState()
+    return {
+      loopMode: session.loopMode,
+      shuffle: session.shuffle,
+      paused: session.paused,
+    }
+  }
+
   async enqueueAndPlay(
     guildId: string,
     channel: VoiceBasedChannel,
     tracks: Track[],
     textChannelId?: string | null
   ): Promise<void> {
+    const existingSession = this.sessions.get(guildId)
     const queue = this.queueManager.forGuild(guildId)
-    queue.enqueue(tracks)
 
-    const session = this.sessions.get(guildId)
-    if (session?.player.state.status === AudioPlayerStatus.Playing) {
+    const batch = [...tracks]
+    if (existingSession?.shuffle) {
+      shuffleTracks(batch)
+    }
+
+    queue.enqueue(batch)
+
+    if (existingSession?.player.state.status === AudioPlayerStatus.Playing) {
+      existingSession.loopSnapshot.push(...batch)
       if (textChannelId) {
-        session.textChannelId = textChannelId
+        existingSession.textChannelId = textChannelId
       }
       return
     }
 
     const connected = await this.ensureConnection(guildId, channel)
+    connected.loopSnapshot.push(...batch)
     if (textChannelId) {
       connected.textChannelId = textChannelId
     }
@@ -90,6 +126,7 @@ export class GuildPlayerManager {
     const session = this.sessions.get(guildId)
     if (!session) return false
 
+    session.advanceRequested = true
     this.killFfmpeg(session)
     session.player.stop(true)
     return true
@@ -101,12 +138,73 @@ export class GuildPlayerManager {
 
     if (session) {
       const textChannelId = session.textChannelId
+      session.loopSnapshot = []
       this.killFfmpeg(session)
       session.player.stop(true)
       session.connection.destroy()
       this.sessions.delete(guildId)
       await this.callbacks.onIdle?.(guildId, textChannelId)
     }
+  }
+
+  async togglePause(guildId: string): Promise<boolean> {
+    const session = this.sessions.get(guildId)
+    if (!session?.currentTrack) return false
+
+    if (session.paused) {
+      session.player.unpause()
+      session.paused = false
+    } else {
+      session.player.pause()
+      session.paused = true
+    }
+
+    await this.callbacks.onPlaybackStateChange?.(
+      guildId,
+      session.currentTrack,
+      session.textChannelId,
+      this.getPlaybackState(guildId)
+    )
+    return true
+  }
+
+  async cycleLoop(guildId: string): Promise<LoopMode> {
+    const session = this.sessions.get(guildId)
+    if (!session) return "off"
+
+    session.loopMode = cycleLoopMode(session.loopMode)
+
+    if (session.currentTrack) {
+      await this.callbacks.onPlaybackStateChange?.(
+        guildId,
+        session.currentTrack,
+        session.textChannelId,
+        this.getPlaybackState(guildId)
+      )
+    }
+
+    return session.loopMode
+  }
+
+  async toggleShuffle(guildId: string): Promise<boolean> {
+    const session = this.sessions.get(guildId)
+    if (!session) return false
+
+    session.shuffle = toggleShuffle(session.shuffle)
+    if (session.shuffle) {
+      this.queueManager.forGuild(guildId).shuffle()
+    }
+
+    if (session.currentTrack) {
+      await this.callbacks.onPlaybackStateChange?.(
+        guildId,
+        session.currentTrack,
+        session.textChannelId,
+        this.getPlaybackState(guildId)
+      )
+    }
+
+    return session.shuffle
   }
 
   async shutdown(): Promise<void> {
@@ -161,7 +259,18 @@ export class GuildPlayerManager {
       void this.playNext(guildId)
     })
 
-    session = { connection, player, ffmpeg: null, currentTrack: null, textChannelId: null }
+    session = {
+      connection,
+      player,
+      ffmpeg: null,
+      currentTrack: null,
+      textChannelId: null,
+      loopMode: "off",
+      shuffle: false,
+      loopSnapshot: [],
+      paused: false,
+      advanceRequested: false,
+    }
     this.sessions.set(guildId, session)
 
     await entersState(connection, VoiceConnectionStatus.Ready, 30_000)
@@ -176,12 +285,40 @@ export class GuildPlayerManager {
     await this.playNext(guildId)
   }
 
+  private resolveNextTrack(guildId: string, session: GuildSession): Track | null {
+    const queue = this.queueManager.forGuild(guildId)
+
+    if (session.advanceRequested) {
+      session.advanceRequested = false
+      const next = queue.dequeue()
+      if (next) return next
+      if (session.loopMode === "queue" && session.loopSnapshot.length > 0) {
+        queue.replaceAll([...session.loopSnapshot])
+        return queue.dequeue() ?? null
+      }
+      if (session.loopMode === "track" && session.currentTrack) {
+        return session.currentTrack
+      }
+      return null
+    }
+
+    if (session.loopMode === "track" && session.currentTrack && queue.isEmpty()) {
+      return session.currentTrack
+    }
+
+    let next = queue.dequeue()
+    if (!next && session.loopMode === "queue" && session.loopSnapshot.length > 0) {
+      queue.replaceAll([...session.loopSnapshot])
+      next = queue.dequeue()
+    }
+    return next ?? null
+  }
+
   private async playNext(guildId: string): Promise<void> {
     const session = this.sessions.get(guildId)
     if (!session) return
 
-    const queue = this.queueManager.forGuild(guildId)
-    const next = queue.dequeue()
+    const next = this.resolveNextTrack(guildId, session)
     if (!next) {
       const textChannelId = session.textChannelId
       session.currentTrack = null
@@ -193,6 +330,7 @@ export class GuildPlayerManager {
     }
 
     this.killFfmpeg(session)
+    session.paused = false
 
     try {
       const stream = await this.qobuz.getStreamUrl(next.id)
@@ -260,5 +398,12 @@ export class GuildPlayerManager {
       session.ffmpeg.kill("SIGKILL")
     }
     session.ffmpeg = null
+  }
+}
+
+function shuffleTracks(tracks: Track[]): void {
+  for (let i = tracks.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[tracks[i], tracks[j]] = [tracks[j], tracks[i]]
   }
 }

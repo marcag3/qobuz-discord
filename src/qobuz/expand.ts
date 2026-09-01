@@ -3,13 +3,25 @@ import { toQobuzError } from "./auth.js"
 import { MAX_EXPANSION_TRACKS } from "./constants.js"
 import type { PopularItem, Track } from "./types.js"
 
+type RawAlbumImage = {
+  large?: string
+  medium?: string
+  thumbnail?: string
+}
+
 type RawTrack = {
   id?: number
   title?: string
   performer?: { name?: string }
   artist?: { name?: string }
-  album?: { title?: string }
+  album?: { title?: string; image?: RawAlbumImage }
   duration?: number
+}
+
+function albumCoverUrl(album?: { image?: RawAlbumImage }): string | undefined {
+  const image = album?.image
+  if (!image) return undefined
+  return image.large ?? image.medium ?? image.thumbnail
 }
 
 function mapTrack(raw: RawTrack): Track | null {
@@ -21,6 +33,7 @@ function mapTrack(raw: RawTrack): Track | null {
     artistName,
     albumTitle: raw.album?.title,
     durationSeconds: raw.duration,
+    albumCoverUrl: albumCoverUrl(raw.album),
   }
 }
 

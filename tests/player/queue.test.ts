@@ -30,6 +30,30 @@ describe("GuildQueue", () => {
     queue.enqueue(tracks)
     expect(() => queue.enqueue([track])).toThrow(QueueFullError)
   })
+
+  it("shuffles items in place", () => {
+    const queue = new GuildQueue()
+    const tracks = Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      title: `Track ${i}`,
+      artistName: "Artist",
+    }))
+    queue.enqueue(tracks)
+    const before = queue.list().map((t) => t.id)
+    queue.shuffle()
+    const after = queue.list().map((t) => t.id)
+    expect(after).toHaveLength(before.length)
+    expect(after.sort()).toEqual(before.sort())
+  })
+
+  it("replaceAll swaps queue contents", () => {
+    const queue = new GuildQueue()
+    queue.enqueue([track])
+    const replacement = [{ id: 99, title: "New", artistName: "Artist" }]
+    queue.replaceAll(replacement)
+    expect(queue.size).toBe(1)
+    expect(queue.peek()?.id).toBe(99)
+  })
 })
 
 describe("QueueManager", () => {

@@ -34,6 +34,18 @@ export class GuildQueue {
   isEmpty(): boolean {
     return this.items.length === 0
   }
+
+  shuffle(): void {
+    for (let i = this.items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[this.items[i], this.items[j]] = [this.items[j], this.items[i]]
+    }
+  }
+
+  replaceAll(tracks: Track[]): void {
+    this.items.length = 0
+    this.items.push(...tracks)
+  }
 }
 
 export class QueueManager {

@@ -6,13 +6,21 @@ const commands = [
     .setName("search")
     .setDescription("Search Qobuz and pick a result")
     .addStringOption((opt) =>
-      opt.setName("query").setDescription("Song, artist, or album").setRequired(true)
+      opt
+        .setName("query")
+        .setDescription("Song, artist, or album")
+        .setRequired(true)
+        .setAutocomplete(true)
     ),
   new SlashCommandBuilder()
     .setName("play")
     .setDescription("Play the top Qobuz result or a Qobuz URL")
     .addStringOption((opt) =>
-      opt.setName("query").setDescription("Search query or Qobuz URL").setRequired(true)
+      opt
+        .setName("query")
+        .setDescription("Search query or Qobuz URL")
+        .setRequired(true)
+        .setAutocomplete(true)
     ),
   new SlashCommandBuilder().setName("skip").setDescription("Skip the current track"),
   new SlashCommandBuilder().setName("queue").setDescription("Show the upcoming queue"),

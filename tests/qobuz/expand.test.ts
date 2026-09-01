@@ -17,7 +17,12 @@ describe("expandToTracks", () => {
       "album/get": {
         tracks: {
           items: [
-            { id: 1, title: "Track One", performer: { name: "Queen" } },
+            {
+              id: 1,
+              title: "Track One",
+              performer: { name: "Queen" },
+              album: { image: { large: "https://example.com/cover.jpg" } },
+            },
             { id: 2, title: "Track Two", performer: { name: "Queen" } },
           ],
         },
@@ -28,7 +33,12 @@ describe("expandToTracks", () => {
     const tracks = await expandToTracks(transport as never, item)
 
     expect(tracks).toHaveLength(2)
-    expect(tracks[0]).toMatchObject({ id: 1, title: "Track One", artistName: "Queen" })
+    expect(tracks[0]).toMatchObject({
+      id: 1,
+      title: "Track One",
+      artistName: "Queen",
+      albumCoverUrl: "https://example.com/cover.jpg",
+    })
   })
 
   it("expands track items directly", async () => {
