@@ -8,6 +8,24 @@ const TYPE_MAP = {
   playlist: "playlists",
 } as const
 
+const TYPE_URL_SEGMENT = {
+  tracks: "track",
+  albums: "album",
+  artists: "artist",
+  playlists: "playlist",
+} as const
+
+export function buildQobuzUrl(
+  type: keyof typeof TYPE_URL_SEGMENT,
+  id: number | string
+): string {
+  return `https://open.qobuz.com/${TYPE_URL_SEGMENT[type]}/${id}`
+}
+
+export function buildTrackUrl(trackId: number): string {
+  return buildQobuzUrl("tracks", trackId)
+}
+
 export function isQobuzUrl(input: string): boolean {
   return QOBUZ_URL_RE.test(input.trim())
 }

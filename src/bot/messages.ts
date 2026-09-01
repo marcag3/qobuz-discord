@@ -5,6 +5,7 @@ import {
   EmbedBuilder,
 } from "discord.js"
 import type { Track } from "../qobuz/types.js"
+import { buildTrackUrl } from "../qobuz/url.js"
 import { loopModeLabel, type PlaybackState } from "../player/playback-state.js"
 
 const MAX_QUEUE_DISPLAY = 10
@@ -31,6 +32,7 @@ export function buildNowPlayingEmbed(track: Track): EmbedBuilder {
     .setColor(0x3a9bdc)
     .setAuthor({ name: "Now Playing" })
     .setTitle(track.title)
+    .setURL(buildTrackUrl(track.id))
     .setDescription(track.artistName)
 
   if (track.albumCoverUrl) {

@@ -15,6 +15,7 @@ describe("messages", () => {
     const embed = buildNowPlayingEmbed(track)
     expect(embed.data.author?.name).toBe("Now Playing")
     expect(embed.data.title).toBe("Bohemian Rhapsody")
+    expect(embed.data.url).toBe("https://open.qobuz.com/track/1")
     expect(embed.data.description).toBe("Queen")
     expect(embed.data.thumbnail?.url).toBe("https://example.com/cover.jpg")
     expect(embed.data.footer?.text).toContain("5:54")

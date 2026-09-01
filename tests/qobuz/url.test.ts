@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { parseQobuzUrl, isQobuzUrl } from "../../src/qobuz/url.js"
+import { buildQobuzUrl, buildTrackUrl, parseQobuzUrl, isQobuzUrl } from "../../src/qobuz/url.js"
+
+describe("buildQobuzUrl", () => {
+  it("builds track URLs", () => {
+    expect(buildTrackUrl(424950499)).toBe("https://open.qobuz.com/track/424950499")
+    expect(buildQobuzUrl("albums", 12345)).toBe("https://open.qobuz.com/album/12345")
+  })
+})
 
 describe("parseQobuzUrl", () => {
   it("parses track URLs", () => {

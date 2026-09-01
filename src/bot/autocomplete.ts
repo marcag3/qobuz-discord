@@ -1,13 +1,7 @@
 import type { AutocompleteInteraction } from "discord.js"
 import type { PopularItem, PopularItemType } from "../qobuz/types.js"
 import type { QobuzClient } from "../qobuz/types.js"
-
-const TYPE_URL_SEGMENT: Record<PopularItemType, string> = {
-  tracks: "track",
-  albums: "album",
-  artists: "artist",
-  playlists: "playlist",
-}
+import { buildQobuzUrl } from "../qobuz/url.js"
 
 const TYPE_LABEL: Record<PopularItemType, string> = {
   tracks: "Track",
@@ -22,8 +16,7 @@ function truncate(text: string, max: number): string {
 }
 
 function qobuzUrl(item: PopularItem): string {
-  const segment = TYPE_URL_SEGMENT[item.type]
-  return `https://open.qobuz.com/${segment}/${item.id}`
+  return buildQobuzUrl(item.type, item.id)
 }
 
 function choiceName(item: PopularItem): string {
