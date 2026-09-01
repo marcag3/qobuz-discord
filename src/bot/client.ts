@@ -18,6 +18,7 @@ import { handleStop } from "./commands/stop.js"
 import { CONTROL_IDS, formatQueueText } from "./messages.js"
 import { handleAutocomplete } from "./autocomplete.js"
 import { clearNowPlaying, updateNowPlaying, type NowPlayingRegistry } from "./now-playing.js"
+import { createPresenceManager } from "./presence.js"
 import { registerCommands } from "./register-commands.js"
 import { ensureCanControl } from "./control-guard.js"
 import { userFacingError } from "./errors.js"
@@ -39,26 +40,30 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
   })
+  const presence = createPresenceManager(client)
 
   const player = new GuildPlayerManager(qobuz, queueManager, {
     onTrackStart: async (guildId, track, textChannelId) => {
-      await updateNowPlaying(
-        client,
-        nowPlayingMessages,
-        guildId,
-        track,
-        player.getPlaybackState(guildId),
-        textChannelId
-      )
+      const state = player.getPlaybackState(guildId)
+      await Promise.all([
+        updateNowPlaying(client, nowPlayingMessages, guildId, track, state, textChannelId),
+        presence.setTrack(guildId, track, state.paused),
+      ])
     },
     onIdle: async (guildId) => {
       clearEmptyChannelTimer(emptyChannelTimers, guildId)
-      await clearNowPlaying(client, nowPlayingMessages, guildId)
+      await Promise.all([
+        clearNowPlaying(client, nowPlayingMessages, guildId),
+        presence.clearGuild(guildId),
+      ])
     },
     onPlaybackStateChange: async (guildId, textChannelId, state) => {
       const track = player.getCurrentTrack(guildId)
       if (!track) return
-      await updateNowPlaying(client, nowPlayingMessages, guildId, track, state, textChannelId)
+      await Promise.all([
+        updateNowPlaying(client, nowPlayingMessages, guildId, track, state, textChannelId),
+        presence.updateState(guildId, state),
+      ])
     },
     onError: async (guildId, error) => {
       console.error(`Playback error in ${guildId}:`, error.message)
@@ -87,6 +92,7 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
       }
       emptyChannelTimers.clear()
       await player.shutdown()
+      await presence.clear()
       client.destroy()
     },
   }
