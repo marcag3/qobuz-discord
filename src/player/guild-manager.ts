@@ -16,7 +16,6 @@ import type { QobuzClient, Track } from "../qobuz/types.js"
 import {
   createPlaybackState,
   cycleLoopMode,
-  toggleShuffle,
   type LoopMode,
   type PlaybackState,
 } from "./playback-state.js"
@@ -30,7 +29,6 @@ export type PlaybackCallbacks = {
   onError?: (guildId: string, error: Error) => void | Promise<void>
   onPlaybackStateChange?: (
     guildId: string,
-    track: Track,
     textChannelId: string | null,
     state: PlaybackState
   ) => void | Promise<void>
@@ -175,7 +173,6 @@ export class GuildPlayerManager {
 
     await this.callbacks.onPlaybackStateChange?.(
       guildId,
-      session.currentTrack,
       session.textChannelId,
       this.getPlaybackState(guildId)
     )
@@ -191,7 +188,6 @@ export class GuildPlayerManager {
     if (session.currentTrack) {
       await this.callbacks.onPlaybackStateChange?.(
         guildId,
-        session.currentTrack,
         session.textChannelId,
         this.getPlaybackState(guildId)
       )
@@ -204,7 +200,7 @@ export class GuildPlayerManager {
     const session = this.sessions.get(guildId)
     if (!session) return false
 
-    session.shuffle = toggleShuffle(session.shuffle)
+    session.shuffle = !session.shuffle
     if (session.shuffle) {
       this.queueManager.forGuild(guildId).shuffle()
     }
@@ -212,7 +208,6 @@ export class GuildPlayerManager {
     if (session.currentTrack) {
       await this.callbacks.onPlaybackStateChange?.(
         guildId,
-        session.currentTrack,
         session.textChannelId,
         this.getPlaybackState(guildId)
       )
@@ -264,7 +259,7 @@ export class GuildPlayerManager {
 
     player.on("stateChange", (oldState, newState) => {
       if (oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
-        void this.onTrackFinished(guildId)
+        void this.playNext(guildId)
       }
     })
 
@@ -293,8 +288,11 @@ export class GuildPlayerManager {
     return session
   }
 
-  private async onTrackFinished(guildId: string): Promise<void> {
-    await this.playNext(guildId)
+  private refillQueueFromLoop(guildId: string, session: GuildSession): Track | null {
+    if (session.loopMode !== "queue" || session.loopSnapshot.length === 0) return null
+    const queue = this.queueManager.forGuild(guildId)
+    queue.replaceAll([...session.loopSnapshot])
+    return queue.dequeue() ?? null
   }
 
   private resolveNextTrack(guildId: string, session: GuildSession): Track | null {
@@ -314,10 +312,8 @@ export class GuildPlayerManager {
       session.advanceRequested = false
       const next = queue.dequeue()
       if (next) return next
-      if (session.loopMode === "queue" && session.loopSnapshot.length > 0) {
-        queue.replaceAll([...session.loopSnapshot])
-        return queue.dequeue() ?? null
-      }
+      const looped = this.refillQueueFromLoop(guildId, session)
+      if (looped) return looped
       if (session.loopMode === "track" && session.currentTrack) {
         return session.currentTrack
       }
@@ -328,12 +324,9 @@ export class GuildPlayerManager {
       return session.currentTrack
     }
 
-    let next = queue.dequeue()
-    if (!next && session.loopMode === "queue" && session.loopSnapshot.length > 0) {
-      queue.replaceAll([...session.loopSnapshot])
-      next = queue.dequeue()
-    }
-    return next ?? null
+    const next = queue.dequeue()
+    if (next) return next
+    return this.refillQueueFromLoop(guildId, session)
   }
 
   private async playNext(guildId: string): Promise<void> {

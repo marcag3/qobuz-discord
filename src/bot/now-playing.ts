@@ -22,15 +22,13 @@ export async function updateNowPlaying(
   const embed = buildNowPlayingEmbed(track)
   const rows = buildControlRows(state)
   const existing = registry.get(guildId)
+  const textChannel = channel as TextChannel
 
   if (existing && existing.channelId === textChannelId) {
-    const msgChannel = await client.channels.fetch(existing.channelId).catch(() => null)
-    if (msgChannel?.isTextBased()) {
-      const message = await msgChannel.messages.fetch(existing.messageId).catch(() => null)
-      if (message) {
-        await message.edit({ embeds: [embed], components: rows }).catch(() => undefined)
-        return
-      }
+    const message = await textChannel.messages.fetch(existing.messageId).catch(() => null)
+    if (message) {
+      await message.edit({ embeds: [embed], components: rows }).catch(() => undefined)
+      return
     }
   }
 
@@ -41,7 +39,7 @@ export async function updateNowPlaying(
     }
   }
 
-  const message = await (channel as TextChannel).send({ embeds: [embed], components: rows })
+  const message = await textChannel.send({ embeds: [embed], components: rows })
   registry.set(guildId, { channelId: textChannelId, messageId: message.id })
 }
 

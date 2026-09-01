@@ -1,4 +1,3 @@
-import { GuildMember } from "discord.js"
 import { QobuzError } from "../qobuz/types.js"
 import { QueueFullError } from "../player/limits.js"
 
@@ -19,13 +18,4 @@ export function userFacingError(err: unknown): string {
 
   console.error("Request failed:", err)
   return GENERIC_ERROR
-}
-
-export function canControlPlayback(member: GuildMember, botVoiceChannelId: string | null): boolean {
-  if (!botVoiceChannelId) return true
-  return member.voice.channelId === botVoiceChannelId
-}
-
-export function playbackDeniedMessage(): string {
-  return "Join the bot's voice channel to control playback."
 }

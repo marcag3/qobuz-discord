@@ -1,7 +1,6 @@
 import {
   Client,
   GatewayIntentBits,
-  GuildMember,
   MessageFlags,
   type ButtonInteraction,
   type Interaction,
@@ -20,7 +19,7 @@ import { CONTROL_IDS, formatQueueText } from "./messages.js"
 import { handleAutocomplete } from "./autocomplete.js"
 import { clearNowPlaying, updateNowPlaying, type NowPlayingRegistry } from "./now-playing.js"
 import { registerCommands } from "./register-commands.js"
-import { assertPlaybackControl } from "./permissions.js"
+import { ensureCanControl } from "./control-guard.js"
 import { userFacingError } from "./errors.js"
 
 export type BotHandle = {
@@ -56,7 +55,7 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
       clearEmptyChannelTimer(emptyChannelTimers, guildId)
       await clearNowPlaying(client, nowPlayingMessages, guildId)
     },
-    onPlaybackStateChange: async (guildId, _track, textChannelId, state) => {
+    onPlaybackStateChange: async (guildId, textChannelId, state) => {
       const track = player.getCurrentTrack(guildId)
       if (!track) return
       await updateNowPlaying(client, nowPlayingMessages, guildId, track, state, textChannelId)
@@ -186,20 +185,11 @@ async function handleButton(
 ): Promise<void> {
   if (!interaction.isButton() || !interaction.guildId) return
 
-  const member = interaction.member
-  if (!(member instanceof GuildMember)) return
-
-  const denied = assertPlaybackControl(member, player, interaction.guildId)
-  if (denied) {
-    await replyEphemeral(interaction, denied)
-    return
-  }
-
   const guildId = interaction.guildId
 
   switch (interaction.customId) {
     case CONTROL_IDS.pause: {
-      if (!(await requirePlaying(interaction, player))) return
+      if (!(await ensureCanControl(interaction, player))) return
       const ok = await player.togglePause(guildId)
       if (!ok) {
         await replyEphemeral(interaction, "Nothing is playing.")
@@ -209,12 +199,12 @@ async function handleButton(
       break
     }
     case CONTROL_IDS.next:
-      if (!(await requirePlaying(interaction, player))) return
+      if (!(await ensureCanControl(interaction, player))) return
       await player.skip(guildId)
       await replyEphemeral(interaction, "Skipped.")
       break
     case CONTROL_IDS.previous:
-      if (!(await requirePlaying(interaction, player))) return
+      if (!(await ensureCanControl(interaction, player))) return
       if (!(await player.previous(guildId))) {
         await replyEphemeral(interaction, "No previous track.")
         return
@@ -222,20 +212,22 @@ async function handleButton(
       await interaction.deferUpdate()
       break
     case CONTROL_IDS.shuffle:
-      if (!(await requirePlaying(interaction, player))) return
+      if (!(await ensureCanControl(interaction, player))) return
       await player.toggleShuffle(guildId)
       await interaction.deferUpdate()
       break
     case CONTROL_IDS.loop:
-      if (!(await requirePlaying(interaction, player))) return
+      if (!(await ensureCanControl(interaction, player))) return
       await player.cycleLoop(guildId)
       await interaction.deferUpdate()
       break
     case CONTROL_IDS.stop:
+      if (!(await ensureCanControl(interaction, player, { requirePlaying: false }))) return
       await player.stop(guildId)
       await replyEphemeral(interaction, "Stopped.")
       break
     case CONTROL_IDS.queue: {
+      if (!(await ensureCanControl(interaction, player))) return
       const current = player.getCurrentTrack(guildId)
       const upcoming = player.getUpcomingTracks(guildId)
       await replyEphemeral(interaction, formatQueueText(current, upcoming))
@@ -246,15 +238,4 @@ async function handleButton(
 
 async function replyEphemeral(interaction: ButtonInteraction, content: string): Promise<void> {
   await interaction.reply({ content, flags: MessageFlags.Ephemeral })
-}
-
-async function requirePlaying(
-  interaction: ButtonInteraction,
-  player: GuildPlayerManager
-): Promise<boolean> {
-  if (!player.isPlaying(interaction.guildId!)) {
-    await replyEphemeral(interaction, "Nothing is playing.")
-    return false
-  }
-  return true
 }

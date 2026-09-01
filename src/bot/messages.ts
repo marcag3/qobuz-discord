@@ -7,6 +7,8 @@ import {
 import type { Track } from "../qobuz/types.js"
 import { loopModeLabel, type PlaybackState } from "../player/playback-state.js"
 
+const MAX_QUEUE_DISPLAY = 10
+
 export const CONTROL_IDS = {
   previous: "np:previous",
   pause: "np:pause",
@@ -84,9 +86,9 @@ export function buildControlRows(state: PlaybackState): ActionRowBuilder<ButtonB
 function formatUpcomingList(tracks: Track[], emptyLabel: string): string {
   if (tracks.length === 0) return emptyLabel
 
-  const lines = tracks.slice(0, 10).map((t, i) => `${i + 1}. ${t.title} — ${t.artistName}`)
+  const lines = tracks.slice(0, MAX_QUEUE_DISPLAY).map((t, i) => `${i + 1}. ${t.title} — ${t.artistName}`)
   let text = lines.join("\n")
-  if (tracks.length > 10) text += `\n+${tracks.length - 10} more`
+  if (tracks.length > MAX_QUEUE_DISPLAY) text += `\n+${tracks.length - MAX_QUEUE_DISPLAY} more`
   return text
 }
 

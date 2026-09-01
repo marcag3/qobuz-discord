@@ -6,29 +6,27 @@ export type PlaybackState = {
   paused: boolean
 }
 
-export function createPlaybackState(
-  overrides: Partial<PlaybackState> = {}
-): PlaybackState {
+const LOOP_MODES: LoopMode[] = ["off", "track", "queue"]
+
+const LOOP_MODE_LABELS: Record<LoopMode, string> = {
+  off: "Loop: Off",
+  track: "Loop: Track",
+  queue: "Loop: Queue",
+}
+
+export function createPlaybackState(): PlaybackState {
   return {
     loopMode: "off",
     shuffle: false,
     paused: false,
-    ...overrides,
   }
 }
 
 export function cycleLoopMode(current: LoopMode): LoopMode {
-  if (current === "off") return "track"
-  if (current === "track") return "queue"
-  return "off"
-}
-
-export function toggleShuffle(current: boolean): boolean {
-  return !current
+  const idx = LOOP_MODES.indexOf(current)
+  return LOOP_MODES[(idx + 1) % LOOP_MODES.length]
 }
 
 export function loopModeLabel(mode: LoopMode): string {
-  if (mode === "off") return "Loop: Off"
-  if (mode === "track") return "Loop: Track"
-  return "Loop: Queue"
+  return LOOP_MODE_LABELS[mode]
 }

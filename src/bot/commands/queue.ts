@@ -1,7 +1,7 @@
-import { ChatInputCommandInteraction, GuildMember, MessageFlags } from "discord.js"
+import { ChatInputCommandInteraction } from "discord.js"
 import type { GuildPlayerManager } from "../../player/guild-manager.js"
 import { buildQueueEmbed } from "../messages.js"
-import { assertPlaybackControl } from "../permissions.js"
+import { ensureCanControl } from "../control-guard.js"
 
 export async function handleQueue(
   interaction: ChatInputCommandInteraction,
@@ -10,12 +10,7 @@ export async function handleQueue(
   const guildId = interaction.guildId!
 
   if (player.isPlaying(guildId)) {
-    const member = interaction.member as GuildMember
-    const denied = assertPlaybackControl(member, player, guildId)
-    if (denied) {
-      await interaction.reply({ content: denied, flags: MessageFlags.Ephemeral })
-      return
-    }
+    if (!(await ensureCanControl(interaction, player, { requirePlaying: false }))) return
   }
 
   const current = player.getCurrentTrack(guildId)

@@ -84,29 +84,24 @@ export async function expandToTracks(transport: Transport, item: PopularItem): P
   return tracks.slice(0, MAX_EXPANSION_TRACKS)
 }
 
+function fallbackTrack(item: PopularItem, trackId: number): Track[] {
+  return [
+    {
+      id: trackId,
+      title: item.title,
+      artistName: item.artistName ?? "Unknown Artist",
+    },
+  ]
+}
+
 async function expandTrack(transport: Transport, item: PopularItem): Promise<Track[]> {
   const trackId = Number(item.id)
   try {
     const raw = await transport.get("track/get", { track_id: trackId })
     const track = mapTrack(raw as RawTrack)
-    if (!track) {
-      return [
-        {
-          id: trackId,
-          title: item.title,
-          artistName: item.artistName ?? "Unknown Artist",
-        },
-      ]
-    }
-    return [track]
+    return track ? [track] : fallbackTrack(item, trackId)
   } catch {
-    return [
-      {
-        id: trackId,
-        title: item.title,
-        artistName: item.artistName ?? "Unknown Artist",
-      },
-    ]
+    return fallbackTrack(item, trackId)
   }
 }
 
