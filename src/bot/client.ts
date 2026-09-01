@@ -83,7 +83,7 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
   })
 
   client.on("interactionCreate", (interaction) => {
-    void handleInteraction(interaction, qobuz, player, nowPlayingMessages)
+    void handleInteraction(interaction, qobuz, player)
   })
 
   await registerCommands(config)
@@ -100,8 +100,7 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
 async function handleInteraction(
   interaction: Interaction,
   qobuz: ReturnType<typeof createQobuzClient>,
-  player: GuildPlayerManager,
-  nowPlayingMessages: Map<string, { channelId: string; messageId: string }>
+  player: GuildPlayerManager
 ): Promise<void> {
   try {
     if (interaction.isChatInputCommand()) {
@@ -131,7 +130,7 @@ async function handleInteraction(
     }
 
     if (interaction.isButton()) {
-      await handleButton(interaction, player, nowPlayingMessages)
+      await handleButton(interaction, player)
     }
   } catch (err) {
     const content = userFacingError(err)
@@ -147,8 +146,7 @@ async function handleInteraction(
 
 async function handleButton(
   interaction: Interaction,
-  player: GuildPlayerManager,
-  nowPlayingMessages: Map<string, { channelId: string; messageId: string }>
+  player: GuildPlayerManager
 ): Promise<void> {
   if (!interaction.isButton() || !interaction.guildId) return
 
