@@ -1,5 +1,9 @@
 # qobuz-discord
 
+[![License: ISC](https://img.shields.io/github/license/marcag3/qobuz-discord)](LICENSE)
+[![Tests](https://github.com/marcag3/qobuz-discord/actions/workflows/ci.yml/badge.svg)](https://github.com/marcag3/qobuz-discord/actions/workflows/ci.yml)
+[![Deployment](https://github.com/marcag3/qobuz-discord/actions/workflows/docker.yml/badge.svg)](https://github.com/marcag3/qobuz-discord/actions/workflows/docker.yml)
+
 Stream music from a premium Qobuz account into Discord voice channels.
 
 A single-container bot for private servers — no Lavalink, no Redis, no multi-service stack. One shared Qobuz account, slash commands, and ffmpeg transcoding inside one process.
@@ -179,4 +183,4 @@ npm run test:integration
 
 ## License
 
-ISC
+[ISC](LICENSE)
