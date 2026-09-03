@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { expandToTracks } from "../../src/qobuz/expand.js"
+import { expandToTracks, resolvePopularItemFromUrl } from "../../src/qobuz/expand.js"
 import type { PopularItem } from "../../src/qobuz/types.js"
 
 function mockTransport(handlers: Record<string, unknown>) {
@@ -82,6 +82,29 @@ describe("expandToTracks", () => {
       id: 1,
       title: "And We Knew It Was Our Time",
       artistName: "Lane 8",
+    })
+  })
+})
+
+describe("resolvePopularItemFromUrl", () => {
+  it("loads album metadata for slug URLs", async () => {
+    const transport = mockTransport({
+      "album/get": {
+        title: "August 26",
+        artist: { name: "Post Malone" },
+      },
+    })
+
+    const item = await resolvePopularItemFromUrl(
+      transport as never,
+      "https://play.qobuz.com/album/ntpjmh3w7c1nq"
+    )
+
+    expect(item).toEqual({
+      type: "albums",
+      id: "ntpjmh3w7c1nq",
+      title: "August 26",
+      artistName: "Post Malone",
     })
   })
 })

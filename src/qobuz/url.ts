@@ -1,5 +1,5 @@
 const QOBUZ_URL_RE =
-  /^https?:\/\/(?:open\.qobuz\.com|www\.qobuz\.com|play\.qobuz\.com)\/(track|album|artist|playlist)\/(\d+)/i
+  /^https?:\/\/(?:open\.qobuz\.com|www\.qobuz\.com|play\.qobuz\.com)\/(track|album|artist|playlist)\/([a-z0-9]+)/i
 
 const TYPE_MAP = {
   track: "tracks",
@@ -30,14 +30,17 @@ export function isQobuzUrl(input: string): boolean {
   return QOBUZ_URL_RE.test(input.trim())
 }
 
-export function parseQobuzUrl(input: string): { type: "tracks" | "albums" | "artists" | "playlists"; id: number } | null {
+export function parseQobuzUrl(
+  input: string
+): { type: "tracks" | "albums" | "artists" | "playlists"; id: string | number } | null {
   const match = input.trim().match(QOBUZ_URL_RE)
   if (!match) return null
 
   const segment = match[1].toLowerCase() as keyof typeof TYPE_MAP
   const type = TYPE_MAP[segment]
-  const id = Number(match[2])
-  if (!type || Number.isNaN(id)) return null
+  const rawId = match[2]
+  if (!type || !rawId) return null
 
+  const id = /^\d+$/.test(rawId) ? Number(rawId) : rawId
   return { type, id }
 }

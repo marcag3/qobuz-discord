@@ -2,6 +2,7 @@ import type { Transport } from "@kud/qobuz"
 import { toQobuzError } from "./auth.js"
 import { MAX_EXPANSION_TRACKS } from "./constants.js"
 import type { PopularItem, Track } from "./types.js"
+import { parseQobuzUrl } from "./url.js"
 
 type RawAlbumImage = {
   large?: string
@@ -135,10 +136,72 @@ async function expandPlaylist(transport: Transport, item: PopularItem): Promise<
   )
 }
 
-export function popularItemFromUrl(parsed: { type: PopularItem["type"]; id: number; title?: string }): PopularItem {
+export function popularItemFromUrl(parsed: {
+  type: PopularItem["type"]
+  id: string | number
+  title?: string
+}): PopularItem {
   return {
     type: parsed.type,
     id: parsed.id,
     title: parsed.title ?? `${parsed.type} ${parsed.id}`,
+  }
+}
+
+export async function resolvePopularItemFromUrl(
+  transport: Transport,
+  url: string
+): Promise<PopularItem | null> {
+  const parsed = parseQobuzUrl(url)
+  if (!parsed) return null
+
+  const fallback = popularItemFromUrl(parsed)
+
+  try {
+    switch (parsed.type) {
+      case "albums": {
+        const raw = (await transport.get("album/get", {
+          album_id: String(parsed.id),
+        })) as { title?: string; artist?: { name?: string } }
+        return {
+          type: "albums",
+          id: parsed.id,
+          title: raw.title ?? fallback.title,
+          artistName: raw.artist?.name,
+        }
+      }
+      case "tracks": {
+        const raw = (await transport.get("track/get", { track_id: Number(parsed.id) })) as RawTrack
+        const track = mapTrack(raw)
+        return track
+          ? { type: "tracks", id: parsed.id, title: track.title, artistName: track.artistName }
+          : fallback
+      }
+      case "artists": {
+        const raw = (await transport.get("artist/get", {
+          artist_id: String(parsed.id),
+        })) as { name?: string }
+        return {
+          type: "artists",
+          id: parsed.id,
+          title: raw.name ?? fallback.title,
+        }
+      }
+      case "playlists": {
+        const raw = (await transport.get("playlist/get", {
+          playlist_id: String(parsed.id),
+        })) as { name?: string; owner?: { name?: string } }
+        return {
+          type: "playlists",
+          id: parsed.id,
+          title: raw.name ?? fallback.title,
+          artistName: raw.owner?.name,
+        }
+      }
+      default:
+        return fallback
+    }
+  } catch {
+    return fallback
   }
 }

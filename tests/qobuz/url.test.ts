@@ -23,6 +23,15 @@ describe("parseQobuzUrl", () => {
     })
   })
 
+  it("parses play.qobuz.com album slug URLs", () => {
+    const url = "https://play.qobuz.com/album/ntpjmh3w7c1nq"
+    expect(isQobuzUrl(url)).toBe(true)
+    expect(parseQobuzUrl(url)).toEqual({
+      type: "albums",
+      id: "ntpjmh3w7c1nq",
+    })
+  })
+
   it("returns null for non-qobuz URLs", () => {
     expect(parseQobuzUrl("bohemian rhapsody")).toBeNull()
     expect(isQobuzUrl("bohemian rhapsody")).toBe(false)

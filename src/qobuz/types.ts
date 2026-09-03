@@ -50,12 +50,13 @@ export class QobuzError extends Error {
 
 export interface QobuzClient {
   search(query: string, limit?: number): Promise<SearchResult>
+  resolveUrlItem(url: string): Promise<PopularItem | null>
   expandToTracks(item: PopularItem): Promise<Track[]>
   getStreamUrl(trackId: number, formatId?: number): Promise<StreamInfo>
 }
 
 export type ParsedQobuzUrl =
   | { type: "tracks"; id: number }
-  | { type: "albums"; id: number }
+  | { type: "albums"; id: string | number }
   | { type: "artists"; id: number }
   | { type: "playlists"; id: number }

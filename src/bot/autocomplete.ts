@@ -1,7 +1,7 @@
 import type { AutocompleteInteraction } from "discord.js"
 import type { PopularItem, PopularItemType } from "../qobuz/types.js"
 import type { QobuzClient } from "../qobuz/types.js"
-import { buildQobuzUrl } from "../qobuz/url.js"
+import { buildQobuzUrl, isQobuzUrl } from "../qobuz/url.js"
 
 const TYPE_LABEL: Record<PopularItemType, string> = {
   tracks: "Track",
@@ -30,13 +30,27 @@ export async function handleAutocomplete(
   qobuz: QobuzClient
 ): Promise<void> {
   const focused = interaction.options.getFocused()
-  if (focused.trim().length < 2) {
+  const query = focused.trim()
+  if (query.length < 2) {
     await interaction.respond([])
     return
   }
 
   try {
-    const result = await qobuz.search(focused, 25)
+    if (isQobuzUrl(query)) {
+      const item = await qobuz.resolveUrlItem(query)
+      if (item) {
+        await interaction.respond([
+          {
+            name: choiceName(item),
+            value: truncate(qobuzUrl(item), 100),
+          },
+        ])
+        return
+      }
+    }
+
+    const result = await qobuz.search(query, 25)
     const choices = result.mostPopular.slice(0, 25).map((item) => ({
       name: choiceName(item),
       value: truncate(qobuzUrl(item), 100),

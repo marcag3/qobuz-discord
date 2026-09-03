@@ -1,6 +1,6 @@
 import type { AppConfig } from "../config.js"
 import { createAuthSession } from "./auth.js"
-import { expandToTracks, popularItemFromUrl } from "./expand.js"
+import { expandToTracks, popularItemFromUrl, resolvePopularItemFromUrl } from "./expand.js"
 import { searchMostPopular } from "./search.js"
 import { DEFAULT_STREAM_FORMAT_ID } from "./constants.js"
 import { fetchStreamUrl, resolveAppCredentials } from "./stream.js"
@@ -43,6 +43,11 @@ export class QobuzService implements QobuzClient {
   async expandToTracks(item: PopularItem): Promise<Track[]> {
     const { transport } = await this.session()
     return expandToTracks(transport, item)
+  }
+
+  async resolveUrlItem(url: string): Promise<PopularItem | null> {
+    const { transport } = await this.session()
+    return resolvePopularItemFromUrl(transport, url)
   }
 
   async expandFromUrl(url: string): Promise<Track[]> {

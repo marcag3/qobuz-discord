@@ -14,6 +14,7 @@ function mockInteraction(focused: string) {
 function mockQobuz(items: QobuzClient["search"] extends (...args: never) => infer R ? Awaited<R> : never): QobuzClient {
   return {
     search: vi.fn().mockResolvedValue(items),
+    resolveUrlItem: vi.fn(),
     expandToTracks: vi.fn(),
     getStreamUrl: vi.fn(),
   }
@@ -36,10 +37,34 @@ describe("handleAutocomplete", () => {
 
     await handleAutocomplete(interaction, qobuz)
 
+    expect(qobuz.search).toHaveBeenCalledWith("bohemian", 25)
     expect(interaction.respond).toHaveBeenCalledWith([
       {
         name: "Track: Bohemian Rhapsody — Queen",
         value: "https://open.qobuz.com/track/12345",
+      },
+    ])
+  })
+
+  it("resolves pasted Qobuz URLs without searching", async () => {
+    const url = "https://play.qobuz.com/album/ntpjmh3w7c1nq"
+    const interaction = mockInteraction(url)
+    const qobuz = mockQobuz({ mostPopular: [] })
+    qobuz.resolveUrlItem = vi.fn().mockResolvedValue({
+      type: "albums",
+      id: "ntpjmh3w7c1nq",
+      title: "August 26",
+      artistName: "Post Malone",
+    })
+
+    await handleAutocomplete(interaction, qobuz)
+
+    expect(qobuz.resolveUrlItem).toHaveBeenCalledWith(url)
+    expect(qobuz.search).not.toHaveBeenCalled()
+    expect(interaction.respond).toHaveBeenCalledWith([
+      {
+        name: "Album: August 26 — Post Malone",
+        value: "https://open.qobuz.com/album/ntpjmh3w7c1nq",
       },
     ])
   })
@@ -62,6 +87,7 @@ describe("handleAutocomplete", () => {
     const interaction = mockInteraction("query")
     const qobuz: QobuzClient = {
       search: vi.fn().mockRejectedValue(new Error("fail")),
+      resolveUrlItem: vi.fn(),
       expandToTracks: vi.fn(),
       getStreamUrl: vi.fn(),
     }
