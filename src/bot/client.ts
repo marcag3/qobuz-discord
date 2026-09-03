@@ -50,8 +50,10 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
         presence.setTrack(guildId, track, state.paused),
       ])
     },
-    onIdle: async (guildId) => {
-      clearEmptyChannelTimer(emptyChannelTimers, guildId)
+    onIdle: async (guildId, _textChannelId, disconnected) => {
+      if (disconnected) {
+        clearEmptyChannelTimer(emptyChannelTimers, guildId)
+      }
       await Promise.all([
         clearNowPlaying(client, nowPlayingMessages, guildId),
         presence.clearGuild(guildId),

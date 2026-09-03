@@ -25,7 +25,11 @@ const MAX_HISTORY_SIZE = 50
 
 export type PlaybackCallbacks = {
   onTrackStart?: (guildId: string, track: Track, textChannelId: string | null) => void | Promise<void>
-  onIdle?: (guildId: string, textChannelId: string | null) => void | Promise<void>
+  onIdle?: (
+    guildId: string,
+    textChannelId: string | null,
+    disconnected: boolean
+  ) => void | Promise<void>
   onError?: (guildId: string, error: Error) => void | Promise<void>
   onPlaybackStateChange?: (
     guildId: string,
@@ -155,7 +159,7 @@ export class GuildPlayerManager {
       session.player.stop(true)
       session.connection.destroy()
       this.sessions.delete(guildId)
-      await this.callbacks.onIdle?.(guildId, textChannelId)
+      await this.callbacks.onIdle?.(guildId, textChannelId, true)
     }
   }
 
@@ -341,9 +345,7 @@ export class GuildPlayerManager {
       const textChannelId = session.textChannelId
       session.currentTrack = null
       this.killFfmpeg(session)
-      session.connection.destroy()
-      this.sessions.delete(guildId)
-      await this.callbacks.onIdle?.(guildId, textChannelId)
+      await this.callbacks.onIdle?.(guildId, textChannelId, false)
       return
     }
 
