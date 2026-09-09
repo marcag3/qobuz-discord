@@ -4,9 +4,9 @@
 [![Tests](https://github.com/marcag3/qobuz-discord/actions/workflows/ci.yml/badge.svg)](https://github.com/marcag3/qobuz-discord/actions/workflows/ci.yml)
 [![Deployment](https://github.com/marcag3/qobuz-discord/actions/workflows/docker.yml/badge.svg)](https://github.com/marcag3/qobuz-discord/actions/workflows/docker.yml)
 
-Stream music from a premium Qobuz account into Discord voice channels.
+Stream music from a premium Qobuz account, plus Radio-Canada [Ohdio](https://ici.radio-canada.ca/ohdio) catch-up and live radio, into Discord voice channels.
 
-A single-container bot for private servers — no Lavalink, no Redis, no multi-service stack. One shared Qobuz account, slash commands, and ffmpeg transcoding inside one process.
+A single-container bot for private servers — no Lavalink, no Redis, no multi-service stack. One shared Qobuz account, public Ohdio streams, slash commands, and ffmpeg transcoding inside one process.
 
 ## Why this exists
 
@@ -19,22 +19,24 @@ There is no maintained bot that streams Qobuz directly into Discord voice. The a
 | Download-then-play bots | Write files to disk instead of live voice streaming |
 | Qobuz search APIs | Poor ranking for natural-language queries — auto-playing result #1 plays the wrong track |
 
-This bot keeps the deployment model simple and uses `/play` autocomplete so users pick the right result instead of trusting rank #1.
+This bot keeps the deployment model simple and uses `/play` autocomplete so users pick the right result instead of trusting rank #1. `/ohdio` does the same for Radio-Canada shows, episodes, and live stations.
 
 ## Features
 
 - **Qobuz catalog search** with autocomplete on `/play`
 - **Direct play** from a search query or Qobuz URL (`/play`)
+- **Ohdio catch-up** — episodes, shows, podcasts, segments, audiobooks, and playlists from an Ohdio URL or `/ohdio` search
+- **Ohdio live radio** — ICI Première, ICI Musique, and other regional stations (Now Playing shows **On Air**)
 - **Queue management** — skip, view queue, stop
 - **Now Playing** embed with inline controls
-- **Single process** — discord.js, Qobuz client, and ffmpeg in one container (~128–256 MB RAM)
+- **Single process** — discord.js, Qobuz, Ohdio, and ffmpeg in one container (~128–256 MB RAM)
 - **Per-guild queues** — each Discord server has its own playback queue
 
 ## Requirements
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/)
 - A [Discord bot application](https://discord.com/developers/applications) (token + client ID)
-- A **Qobuz premium** subscription
+- A **Qobuz premium** subscription (Ohdio needs no extra account)
 
 ## Installation
 
@@ -57,6 +59,7 @@ services:
 DISCORD_TOKEN=
 DISCORD_CLIENT_ID=
 QOBUZ_USER_TOKEN=
+# OHDIO_REGION_ID=8
 ```
 
 | Variable | Required | Description |
@@ -65,6 +68,7 @@ QOBUZ_USER_TOKEN=
 | `DISCORD_CLIENT_ID` | Yes | Application ID (same portal) |
 | `QOBUZ_USER_TOKEN` | Yes | Browser session token — see below |
 | `GUILD_ID` | No | Register slash commands to one guild only (faster while testing) |
+| `OHDIO_REGION_ID` | No | Live radio region (default `8` = Montréal). Catch-up URLs work without this. |
 
 #### Qobuz user token
 
@@ -104,35 +108,53 @@ In the Discord Developer Portal, create an OAuth2 invite URL with:
 - Scopes: **bot**, **applications.commands**
 - Bot permissions: **Connect**, **Speak**, **Use Voice Activity**
 
-Add the bot to your server, join a voice channel, and run `/play`.
+Add the bot to your server, join a voice channel, and run `/play` or `/ohdio`.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/play <query\|url>` | Search Qobuz (autocomplete) or play a Qobuz track/album URL |
+| `/play <query\|url>` | Search Qobuz (autocomplete), or play a Qobuz or Ohdio URL |
+| `/ohdio <query\|url>` | Search Ohdio (autocomplete), play a show/episode URL, or tune live radio |
 | `/skip` | Skip to the next track |
 | `/queue` | Show upcoming tracks |
 | `/stop` | Stop playback and clear the queue |
 
 Anyone in the server can control playback.
 
+### Ohdio
+
+`/ohdio` searches Radio-Canada Ohdio. Autocomplete lists shows, recent episodes, and a live station when the query matches one. Pasting an [Ohdio](https://ici.radio-canada.ca/ohdio) URL into `/play` or `/ohdio` also works.
+
+| Input | Result |
+|-------|--------|
+| Search text (`pénelope`, a podcast name) | Pick a show or episode from autocomplete |
+| Episode, show, podcast, segment, audiobook, or playlist URL | Queue that item (a show URL plays the latest episode) |
+| `premiere`, `ici premiere`, or an ICI Première URL | Live ICI Première for the configured region |
+| `musique`, `ici musique`, or an ICI Musique URL | Live ICI Musique |
+
+Live streams keep playing until you skip or stop. Catch-up needs no Radio-Canada login.
+
 ## How it works
 
 ```
 Discord slash command
         │
-        ▼
-  Qobuz API (search / metadata / stream URL)
-        │
-        ▼
-  ffmpeg (transcode to Opus)
-        │
-        ▼
-  Discord voice channel
+        ├──────────────┐
+        ▼              ▼
+  Qobuz API      Ohdio (Radio-Canada)
+  search /       GraphQL + HLS stream
+  stream URL
+        │              │
+        └──────┬───────┘
+               ▼
+        ffmpeg (transcode to Opus)
+               │
+               ▼
+        Discord voice channel
 ```
 
-The bot runs as a single Node.js process. Each guild gets its own queue and voice connection. Audio is fetched from Qobuz, transcoded on the fly, and pushed to Discord via `@discordjs/voice`.
+The bot runs as a single Node.js process. Each guild gets its own queue and voice connection. Audio is fetched from Qobuz or Ohdio, transcoded on the fly, and pushed to Discord via `@discordjs/voice`.
 
 ## Development
 
