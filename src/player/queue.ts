@@ -1,4 +1,4 @@
-import type { Track } from "../qobuz/types.js"
+import type { Track } from "./track.js"
 import { MAX_QUEUE_SIZE, QueueFullError } from "./limits.js"
 
 export function shuffleInPlace<T>(items: T[]): void {

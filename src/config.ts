@@ -1,3 +1,5 @@
+import { DEFAULT_REGION_ID } from "./ohdio/constants.js"
+
 export type AppConfig = {
   discordToken: string
   discordClientId: string
@@ -5,6 +7,7 @@ export type AppConfig = {
   guildId?: string
   qobuzAppId?: string
   qobuzAppSecret?: string
+  ohdioRegionId: number
 }
 
 export class ConfigError extends Error {
@@ -26,7 +29,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     guildId: optionalEnv(env, "GUILD_ID"),
     qobuzAppId: optionalEnv(env, "QOBUZ_APP_ID"),
     qobuzAppSecret: optionalEnv(env, "QOBUZ_APP_SECRET"),
+    ohdioRegionId: parseRegionId(env.OHDIO_REGION_ID),
   }
+}
+
+function parseRegionId(value: string | undefined): number {
+  const parsed = Number(value?.trim())
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_REGION_ID
 }
 
 function requireEnv(env: NodeJS.ProcessEnv, key: string): string {

@@ -4,11 +4,21 @@ import type { AppConfig } from "../config.js"
 const commands = [
   new SlashCommandBuilder()
     .setName("play")
-    .setDescription("Play the top Qobuz result or a Qobuz URL")
+    .setDescription("Play Qobuz search, a Qobuz URL, or an Ohdio URL")
     .addStringOption((opt) =>
       opt
         .setName("query")
-        .setDescription("Search query or Qobuz URL")
+        .setDescription("Search query, Qobuz URL, or Ohdio URL")
+        .setRequired(true)
+        .setAutocomplete(true)
+    ),
+  new SlashCommandBuilder()
+    .setName("ohdio")
+    .setDescription("Play Ohdio catch-up, live radio, or search")
+    .addStringOption((opt) =>
+      opt
+        .setName("query")
+        .setDescription("Ohdio search, show, episode URL, or ICI Première / Musique")
         .setRequired(true)
         .setAutocomplete(true)
     ),

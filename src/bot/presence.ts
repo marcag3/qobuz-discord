@@ -1,6 +1,6 @@
 import { ActivityType, type Client } from "discord.js"
 import type { PlaybackState } from "../player/playback-state.js"
-import type { Track } from "../qobuz/types.js"
+import type { Track } from "../player/track.js"
 
 const MAX_ACTIVITY_LENGTH = 128
 

@@ -17,6 +17,7 @@ describe("loadConfig", () => {
       guildId: "guild-1",
       qobuzAppId: undefined,
       qobuzAppSecret: undefined,
+      ohdioRegionId: 8,
     })
   })
 
@@ -25,6 +26,16 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ DISCORD_TOKEN: "x" })).toThrow(
       "Missing required environment variable: DISCORD_CLIENT_ID"
     )
+  })
+
+  it("reads OHDIO_REGION_ID when set", () => {
+    const config = loadConfig({
+      DISCORD_TOKEN: "discord-token",
+      DISCORD_CLIENT_ID: "123456789",
+      QOBUZ_USER_TOKEN: "qobuz-token",
+      OHDIO_REGION_ID: "11",
+    })
+    expect(config.ohdioRegionId).toBe(11)
   })
 
   it("ignores empty optional vars", () => {

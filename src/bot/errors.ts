@@ -1,4 +1,5 @@
 import { QobuzError } from "../qobuz/types.js"
+import { OhdioError } from "../ohdio/errors.js"
 import { QueueFullError } from "../player/limits.js"
 
 const GENERIC_ERROR = "Something went wrong. Try again later."
@@ -9,6 +10,10 @@ export function userFacingError(err: unknown): string {
   }
 
   if (err instanceof QueueFullError) {
+    return err.message
+  }
+
+  if (err instanceof OhdioError) {
     return err.message
   }
 

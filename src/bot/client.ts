@@ -9,9 +9,12 @@ import {
 import "@snazzah/davey"
 import type { AppConfig } from "../config.js"
 import { createQobuzClient } from "../qobuz/client.js"
+import { createOhdioClient } from "../ohdio/client.js"
+import { createStreamResolver } from "../catalog/resolve.js"
 import { GuildPlayerManager } from "../player/guild-manager.js"
 import { QueueManager } from "../player/queue.js"
 import { handlePlay } from "./commands/play.js"
+import { handleOhdio } from "./commands/ohdio.js"
 import { handleSkip } from "./commands/skip.js"
 import { handleQueue } from "./commands/queue.js"
 import { handleStop } from "./commands/stop.js"
@@ -32,6 +35,7 @@ const AUTO_DISCONNECT_MS = 60_000
 export async function startBot(config: AppConfig): Promise<BotHandle> {
   const qobuz = createQobuzClient(config)
   await qobuz.init()
+  const ohdio = createOhdioClient({ regionId: config.ohdioRegionId })
 
   const queueManager = new QueueManager()
   const nowPlayingMessages: NowPlayingRegistry = new Map()
@@ -42,7 +46,7 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
   })
   const presence = createPresenceManager(client)
 
-  const player = new GuildPlayerManager(qobuz, queueManager, {
+  const player = new GuildPlayerManager(createStreamResolver(qobuz, ohdio), queueManager, {
     onTrackStart: async (guildId, track, textChannelId) => {
       const state = player.getPlaybackState(guildId)
       await Promise.all([
@@ -77,7 +81,7 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
   })
 
   client.on("interactionCreate", (interaction) => {
-    void handleInteraction(interaction, qobuz, player)
+    void handleInteraction(interaction, qobuz, ohdio, player)
   })
 
   client.on("voiceStateUpdate", (oldState, newState) => {
@@ -146,18 +150,22 @@ async function handleVoiceStateUpdate(
 async function handleInteraction(
   interaction: Interaction,
   qobuz: ReturnType<typeof createQobuzClient>,
+  ohdio: ReturnType<typeof createOhdioClient>,
   player: GuildPlayerManager
 ): Promise<void> {
   try {
     if (interaction.isAutocomplete()) {
-      await handleAutocomplete(interaction, qobuz)
+      await handleAutocomplete(interaction, qobuz, ohdio)
       return
     }
 
     if (interaction.isChatInputCommand()) {
       switch (interaction.commandName) {
         case "play":
-          await handlePlay(interaction, qobuz, player)
+          await handlePlay(interaction, qobuz, ohdio, player)
+          break
+        case "ohdio":
+          await handleOhdio(interaction, ohdio, player)
           break
         case "skip":
           await handleSkip(interaction, player)

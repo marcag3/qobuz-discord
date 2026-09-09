@@ -4,7 +4,7 @@ import {
   ButtonStyle,
   EmbedBuilder,
 } from "discord.js"
-import type { Track } from "../qobuz/types.js"
+import type { Track } from "../player/track.js"
 import { buildTrackUrl } from "../qobuz/url.js"
 import { loopModeLabel, type PlaybackState } from "../player/playback-state.js"
 
@@ -29,19 +29,23 @@ function formatDuration(seconds?: number): string | undefined {
 
 export function buildNowPlayingEmbed(track: Track): EmbedBuilder {
   const embed = new EmbedBuilder()
-    .setColor(0x3a9bdc)
-    .setAuthor({ name: "Now Playing" })
+    .setColor(track.source === "ohdio" ? 0xe3002b : 0x3a9bdc)
+    .setAuthor({ name: track.infinite ? "On Air" : "Now Playing" })
     .setTitle(track.title)
-    .setURL(buildTrackUrl(track.id))
     .setDescription(track.artistName)
+
+  const url = track.url ?? (track.source === "qobuz" ? buildTrackUrl(track.id) : undefined)
+  if (url) embed.setURL(url)
 
   if (track.albumCoverUrl) {
     embed.setThumbnail(track.albumCoverUrl)
   }
 
-  const footerParts = [track.albumTitle ?? "Qobuz"]
+  const sourceLabel = track.infinite ? "Ohdio Live" : track.source === "ohdio" ? "Ohdio" : "Qobuz"
+  const footerParts = [track.albumTitle ?? sourceLabel]
   const duration = formatDuration(track.durationSeconds)
   if (duration) footerParts.push(duration)
+  if (track.infinite && !track.albumTitle) footerParts.push("Live")
 
   embed.setFooter({ text: footerParts.join(" · ") })
   return embed

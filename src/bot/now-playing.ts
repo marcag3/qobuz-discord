@@ -1,5 +1,5 @@
 import type { Client, TextChannel } from "discord.js"
-import type { Track } from "../qobuz/types.js"
+import type { Track } from "../player/track.js"
 import type { PlaybackState } from "../player/playback-state.js"
 import { buildControlRows, buildNowPlayingEmbed } from "./messages.js"
 

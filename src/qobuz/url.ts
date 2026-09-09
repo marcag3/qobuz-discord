@@ -22,7 +22,7 @@ export function buildQobuzUrl(
   return `https://open.qobuz.com/${TYPE_URL_SEGMENT[type]}/${id}`
 }
 
-export function buildTrackUrl(trackId: number): string {
+export function buildTrackUrl(trackId: number | string): string {
   return buildQobuzUrl("tracks", trackId)
 }
 

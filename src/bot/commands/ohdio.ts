@@ -4,14 +4,11 @@ import {
   MessageFlags,
 } from "discord.js"
 import type { OhdioClient } from "../../ohdio/client.js"
-import { resolvePlayQuery } from "../../catalog/resolve.js"
 import type { GuildPlayerManager } from "../../player/guild-manager.js"
-import type { QobuzService } from "../../qobuz/client.js"
 import { userFacingError } from "../errors.js"
 
-export async function handlePlay(
+export async function handleOhdio(
   interaction: ChatInputCommandInteraction,
-  qobuz: QobuzService,
   ohdio: OhdioClient,
   player: GuildPlayerManager
 ): Promise<void> {
@@ -30,10 +27,10 @@ export async function handlePlay(
   await interaction.deferReply()
 
   try {
-    const tracks = await resolvePlayQuery(qobuz, ohdio, query)
+    const tracks = await ohdio.expandFromQuery(query)
 
     if (tracks.length === 0) {
-      await interaction.editReply("No tracks found.")
+      await interaction.editReply("No Ohdio audio found.")
       return
     }
 

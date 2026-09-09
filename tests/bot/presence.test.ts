@@ -3,7 +3,8 @@ import { formatListeningActivity } from "../../src/bot/presence.js"
 
 describe("presence", () => {
   const track = {
-    id: 1,
+    id: "1",
+    source: "qobuz" as const,
     title: "Bohemian Rhapsody",
     artistName: "Queen",
     albumTitle: "A Night at the Opera",

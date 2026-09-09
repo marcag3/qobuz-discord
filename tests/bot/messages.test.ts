@@ -3,13 +3,29 @@ import { buildControlRows, buildNowPlayingEmbed, CONTROL_IDS } from "../../src/b
 
 describe("messages", () => {
   const track = {
-    id: 1,
+    id: "1",
+    source: "qobuz" as const,
     title: "Bohemian Rhapsody",
     artistName: "Queen",
     albumTitle: "A Night at the Opera",
     albumCoverUrl: "https://example.com/cover.jpg",
     durationSeconds: 354,
   }
+
+  it("builds an Ohdio live embed without a Qobuz URL", () => {
+    const embed = buildNowPlayingEmbed({
+      id: "live:cbf",
+      source: "ohdio",
+      title: "Pénélope",
+      artistName: "ICI Première",
+      albumTitle: "En direct",
+      infinite: true,
+      url: "https://ici.radio-canada.ca/ohdio/premiere",
+    })
+    expect(embed.data.author?.name).toBe("On Air")
+    expect(embed.data.url).toBe("https://ici.radio-canada.ca/ohdio/premiere")
+    expect(embed.data.footer?.text).toContain("En direct")
+  })
 
   it("builds now playing embed with thumbnail and duration", () => {
     const embed = buildNowPlayingEmbed(track)

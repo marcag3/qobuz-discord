@@ -1,5 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process"
-import { resolveFfmpegPath } from "../ffmpeg.js"
+import { PassThrough } from "node:stream"
+import {
+  buildPlaybackFfmpegArgs,
+  MAX_MISSED_FRAMES,
+  PCM_BYTES_PER_SECOND,
+  PCM_PREFETCH_SECONDS,
+  resolveFfmpegPath,
+} from "../ffmpeg.js"
 import {
   createAudioPlayer,
   createAudioResource,
@@ -12,7 +19,8 @@ import {
   type VoiceConnection,
 } from "@discordjs/voice"
 import type { VoiceBasedChannel } from "discord.js"
-import type { QobuzClient, Track } from "../qobuz/types.js"
+import type { StreamResolver } from "./stream.js"
+import type { Track } from "./track.js"
 import {
   createPlaybackState,
   cycleLoopMode,
@@ -42,6 +50,7 @@ type GuildSession = {
   connection: VoiceConnection
   player: AudioPlayer
   ffmpeg: ChildProcess | null
+  pcmStream: PassThrough | null
   currentTrack: Track | null
   textChannelId: string | null
   loopMode: LoopMode
@@ -51,20 +60,23 @@ type GuildSession = {
   paused: boolean
   advanceRequested: boolean
   backRequested: boolean
+  liveRefresh: ReturnType<typeof setInterval> | null
 }
 
+const LIVE_REFRESH_MS = 45_000
+
 export class GuildPlayerManager {
-  private readonly qobuz: QobuzClient
+  private readonly streams: StreamResolver
   private readonly queueManager: QueueManager
   private readonly sessions = new Map<string, GuildSession>()
   private readonly callbacks: PlaybackCallbacks
 
   constructor(
-    qobuz: QobuzClient,
+    streams: StreamResolver,
     queueManager: QueueManager,
     callbacks: PlaybackCallbacks = {}
   ) {
-    this.qobuz = qobuz
+    this.streams = streams
     this.queueManager = queueManager
     this.callbacks = callbacks
   }
@@ -247,7 +259,9 @@ export class GuildPlayerManager {
       selfDeaf: false,
     })
 
-    const player = createAudioPlayer()
+    const player = createAudioPlayer({
+      behaviors: { maxMissedFrames: MAX_MISSED_FRAMES },
+    })
     connection.subscribe(player)
 
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
@@ -276,6 +290,7 @@ export class GuildPlayerManager {
       connection,
       player,
       ffmpeg: null,
+      pcmStream: null,
       currentTrack: null,
       textChannelId: null,
       loopMode: "off",
@@ -285,6 +300,7 @@ export class GuildPlayerManager {
       paused: false,
       advanceRequested: false,
       backRequested: false,
+      liveRefresh: null,
     }
     this.sessions.set(guildId, session)
 
@@ -337,6 +353,15 @@ export class GuildPlayerManager {
     const session = this.sessions.get(guildId)
     if (!session) return
 
+    if (
+      session.currentTrack?.infinite &&
+      !session.advanceRequested &&
+      !session.backRequested
+    ) {
+      await this.startTrack(guildId, session, session.currentTrack)
+      return
+    }
+
     const previousTrack = session.currentTrack
     const wasGoingBack = session.backRequested
     const wasSkipping = session.advanceRequested
@@ -353,57 +378,85 @@ export class GuildPlayerManager {
       this.pushHistory(session, previousTrack)
     }
 
+    await this.startTrack(guildId, session, next)
+  }
+
+  private async startTrack(guildId: string, session: GuildSession, track: Track): Promise<void> {
     this.killFfmpeg(session)
     session.paused = false
 
     try {
-      const stream = await this.qobuz.getStreamUrl(next.id)
-      const ffmpeg = this.createFfmpegStream(stream.url)
-      session.ffmpeg = ffmpeg
-      session.currentTrack = next
+      const stream = await this.streams.resolve(track)
+      const { proc, pcm } = this.createFfmpegStream(
+        stream.url,
+        stream.seekSeconds ?? track.seekSeconds,
+        stream.userAgent
+      )
+      session.ffmpeg = proc
+      session.pcmStream = pcm
+      session.currentTrack = track
+      this.scheduleLiveRefresh(guildId, session, track)
 
-      ffmpeg.stderr?.on("data", (chunk) => {
+      proc.stderr?.on("data", (chunk) => {
         const msg = chunk.toString().trim()
         if (msg) console.error(`ffmpeg[${guildId}]: ${msg}`)
       })
 
-      const resource = createAudioResource(ffmpeg.stdout!, {
+      const resource = createAudioResource(pcm, {
         inputType: StreamType.Raw,
       })
 
       session.player.play(resource)
       await entersState(session.player, AudioPlayerStatus.Playing, 15_000)
-      await this.callbacks.onTrackStart?.(guildId, next, session.textChannelId)
+      await this.callbacks.onTrackStart?.(guildId, track, session.textChannelId)
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err))
       await this.callbacks.onError?.(guildId, error)
+      session.currentTrack = null
       await this.playNext(guildId)
     }
   }
 
-  private createFfmpegStream(url: string): ChildProcess {
+  private scheduleLiveRefresh(guildId: string, session: GuildSession, track: Track): void {
+    this.clearLiveRefresh(session)
+    if (!track.infinite || !this.streams.refresh) return
+
+    session.liveRefresh = setInterval(() => {
+      void this.refreshLiveTrack(guildId)
+    }, LIVE_REFRESH_MS)
+  }
+
+  private async refreshLiveTrack(guildId: string): Promise<void> {
+    const session = this.sessions.get(guildId)
+    const track = session?.currentTrack
+    if (!session || !track?.infinite || !this.streams.refresh) return
+
+    try {
+      const updated = await this.streams.refresh(track)
+      if (updated.title === track.title && updated.artistName === track.artistName) return
+      session.currentTrack = updated
+      await this.callbacks.onTrackStart?.(guildId, updated, session.textChannelId)
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err))
+      console.error(`Live metadata refresh failed in ${guildId}:`, error.message)
+    }
+  }
+
+  private createFfmpegStream(
+    url: string,
+    seekSeconds?: number,
+    userAgent?: string
+  ): { proc: ChildProcess; pcm: PassThrough } {
     const ffmpeg = resolveFfmpegPath()
-    const proc = spawn(
-      ffmpeg,
-      [
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-re",
-        "-i",
-        url,
-        "-analyzeduration",
-        "0",
-        "-f",
-        "s16le",
-        "-ar",
-        "48000",
-        "-ac",
-        "2",
-        "pipe:1",
-      ],
-      { stdio: ["ignore", "pipe", "pipe"] }
-    )
+    const args = buildPlaybackFfmpegArgs(url, { seekSeconds, userAgent })
+    const proc = spawn(ffmpeg, args, { stdio: ["ignore", "pipe", "pipe"] })
+    const pcm = new PassThrough({
+      highWaterMark: PCM_BYTES_PER_SECOND * PCM_PREFETCH_SECONDS,
+    })
+
+    proc.stdout?.on("error", () => undefined)
+    pcm.on("error", () => undefined)
+    proc.stdout?.pipe(pcm)
 
     proc.on("error", (err) => {
       console.error(`ffmpeg spawn error (${ffmpeg}):`, err.message)
@@ -414,10 +467,22 @@ export class GuildPlayerManager {
       }
     })
 
-    return proc
+    return { proc, pcm }
+  }
+
+  private clearLiveRefresh(session: GuildSession): void {
+    if (session.liveRefresh) {
+      clearInterval(session.liveRefresh)
+      session.liveRefresh = null
+    }
   }
 
   private killFfmpeg(session: GuildSession): void {
+    this.clearLiveRefresh(session)
+    if (session.pcmStream) {
+      session.pcmStream.destroy()
+      session.pcmStream = null
+    }
     if (session.ffmpeg && !session.ffmpeg.killed) {
       session.ffmpeg.kill("SIGKILL")
     }

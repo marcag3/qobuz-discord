@@ -1,7 +1,9 @@
 import type { Transport } from "@kud/qobuz"
 import { toQobuzError } from "./auth.js"
 import { MAX_EXPANSION_TRACKS } from "./constants.js"
-import type { PopularItem, Track } from "./types.js"
+import { qobuzTrack } from "../player/track.js"
+import type { Track } from "../player/track.js"
+import type { PopularItem } from "./types.js"
 import { parseQobuzUrl } from "./url.js"
 
 type RawAlbumImage = {
@@ -32,14 +34,13 @@ function albumCoverUrl(album?: { image?: RawAlbumImage }): string | undefined {
 function mapTrack(raw: RawTrack): Track | null {
   if (!raw.id || !raw.title) return null
   const artistName = raw.performer?.name ?? raw.artist?.name ?? "Unknown Artist"
-  return {
-    id: raw.id,
+  return qobuzTrack(raw.id, {
     title: raw.title,
     artistName,
     albumTitle: raw.album?.title,
     durationSeconds: raw.duration,
     albumCoverUrl: albumCoverUrl(raw.album),
-  }
+  })
 }
 
 function mapTracks(raw: RawTracksResponse): Track[] {
@@ -87,11 +88,10 @@ export async function expandToTracks(transport: Transport, item: PopularItem): P
 
 function fallbackTrack(item: PopularItem, trackId: number): Track[] {
   return [
-    {
-      id: trackId,
+    qobuzTrack(trackId, {
       title: item.title,
       artistName: item.artistName ?? "Unknown Artist",
-    },
+    }),
   ]
 }
 

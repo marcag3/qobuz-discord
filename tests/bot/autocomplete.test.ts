@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from "vitest"
 import { handleAutocomplete } from "../../src/bot/autocomplete.js"
 import type { AutocompleteInteraction } from "discord.js"
 import type { QobuzClient } from "../../src/qobuz/types.js"
+import type { OhdioClient } from "../../src/ohdio/client.js"
 
-function mockInteraction(focused: string) {
+function mockInteraction(focused: string, commandName = "play") {
   const respond = vi.fn()
   return {
+    commandName,
     options: { getFocused: () => focused },
     respond,
   } as unknown as AutocompleteInteraction & { respond: ReturnType<typeof vi.fn> }
@@ -20,10 +22,23 @@ function mockQobuz(items: QobuzClient["search"] extends (...args: never) => infe
   }
 }
 
+function mockOhdio(overrides: Partial<OhdioClient> = {}): OhdioClient {
+  return {
+    expandFromQuery: vi.fn().mockResolvedValue([]),
+    search: vi.fn().mockResolvedValue([]),
+    autocomplete: vi.fn().mockResolvedValue([]),
+    expandSearchItem: vi.fn().mockResolvedValue([]),
+    getStreamUrl: vi.fn(),
+    refreshTrack: vi.fn(async (track) => track),
+    listProgrammeEpisodes: vi.fn().mockResolvedValue([]),
+    ...overrides,
+  } as unknown as OhdioClient
+}
+
 describe("handleAutocomplete", () => {
   it("returns empty for short queries", async () => {
     const interaction = mockInteraction("a")
-    await handleAutocomplete(interaction, mockQobuz({ mostPopular: [] }))
+    await handleAutocomplete(interaction, mockQobuz({ mostPopular: [] }), mockOhdio())
     expect(interaction.respond).toHaveBeenCalledWith([])
   })
 
@@ -35,7 +50,7 @@ describe("handleAutocomplete", () => {
       ],
     })
 
-    await handleAutocomplete(interaction, qobuz)
+    await handleAutocomplete(interaction, qobuz, mockOhdio())
 
     expect(qobuz.search).toHaveBeenCalledWith("bohemian", 25)
     expect(interaction.respond).toHaveBeenCalledWith([
@@ -57,7 +72,7 @@ describe("handleAutocomplete", () => {
       artistName: "Post Malone",
     })
 
-    await handleAutocomplete(interaction, qobuz)
+    await handleAutocomplete(interaction, qobuz, mockOhdio())
 
     expect(qobuz.resolveUrlItem).toHaveBeenCalledWith(url)
     expect(qobuz.search).not.toHaveBeenCalled()
@@ -69,6 +84,28 @@ describe("handleAutocomplete", () => {
     ])
   })
 
+  it("routes Ohdio URLs and /ohdio to Ohdio autocomplete", async () => {
+    const interaction = mockInteraction(
+      "https://ici.radio-canada.ca/ohdio/premiere/emissions/penelope",
+      "play"
+    )
+    const ohdio = mockOhdio({
+      autocomplete: vi.fn().mockResolvedValue([
+        { kind: "programme", id: "6896", title: "Pénélope", subtitle: "ICI Première" },
+      ]),
+    })
+
+    await handleAutocomplete(interaction, mockQobuz({ mostPopular: [] }), ohdio)
+
+    expect(ohdio.autocomplete).toHaveBeenCalled()
+    expect(interaction.respond).toHaveBeenCalledWith([
+      {
+        name: "Show: Pénélope — ICI Première",
+        value: "ohdio:programme:6896",
+      },
+    ])
+  })
+
   it("truncates long choice names to 100 chars", async () => {
     const interaction = mockInteraction("long")
     const longTitle = "A".repeat(120)
@@ -76,7 +113,7 @@ describe("handleAutocomplete", () => {
       mostPopular: [{ type: "albums", id: 1, title: longTitle, artistName: "Artist" }],
     })
 
-    await handleAutocomplete(interaction, qobuz)
+    await handleAutocomplete(interaction, qobuz, mockOhdio())
 
     const choices = interaction.respond.mock.calls[0][0] as { name: string }[]
     expect(choices[0].name.length).toBeLessThanOrEqual(100)
@@ -92,7 +129,7 @@ describe("handleAutocomplete", () => {
       getStreamUrl: vi.fn(),
     }
 
-    await handleAutocomplete(interaction, qobuz)
+    await handleAutocomplete(interaction, qobuz, mockOhdio())
     expect(interaction.respond).toHaveBeenCalledWith([])
   })
 })

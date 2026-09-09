@@ -1,4 +1,7 @@
 import type { AutocompleteInteraction } from "discord.js"
+import type { OhdioClient } from "../ohdio/client.js"
+import { searchChoice } from "../ohdio/client.js"
+import { isOhdioInput } from "../ohdio/url.js"
 import type { PopularItem, PopularItemType } from "../qobuz/types.js"
 import type { QobuzClient } from "../qobuz/types.js"
 import { buildQobuzUrl, isQobuzUrl } from "../qobuz/url.js"
@@ -27,7 +30,8 @@ function choiceName(item: PopularItem): string {
 
 export async function handleAutocomplete(
   interaction: AutocompleteInteraction,
-  qobuz: QobuzClient
+  qobuz: QobuzClient,
+  ohdio: OhdioClient
 ): Promise<void> {
   const focused = interaction.options.getFocused()
   const query = focused.trim()
@@ -37,6 +41,12 @@ export async function handleAutocomplete(
   }
 
   try {
+    if (interaction.commandName === "ohdio" || isOhdioInput(query)) {
+      const items = await ohdio.autocomplete(query)
+      await interaction.respond(items.slice(0, 25).map(searchChoice))
+      return
+    }
+
     if (isQobuzUrl(query)) {
       const item = await qobuz.resolveUrlItem(query)
       if (item) {

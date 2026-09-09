@@ -34,7 +34,8 @@ describe("expandToTracks", () => {
 
     expect(tracks).toHaveLength(2)
     expect(tracks[0]).toMatchObject({
-      id: 1,
+      id: "1",
+      source: "qobuz",
       title: "Track One",
       artistName: "Queen",
       albumCoverUrl: "https://example.com/cover.jpg",
@@ -59,7 +60,7 @@ describe("expandToTracks", () => {
 
     const tracks = await expandToTracks(transport as never, item)
     expect(tracks).toHaveLength(1)
-    expect(tracks[0].id).toBe(424950499)
+    expect(tracks[0].id).toBe("424950499")
   })
 
   it("expands artist items via artist/get tracks extra", async () => {
@@ -79,7 +80,8 @@ describe("expandToTracks", () => {
 
     expect(tracks).toHaveLength(2)
     expect(tracks[0]).toMatchObject({
-      id: 1,
+      id: "1",
+      source: "qobuz",
       title: "And We Knew It Was Our Time",
       artistName: "Lane 8",
     })

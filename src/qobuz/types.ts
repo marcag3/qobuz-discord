@@ -1,3 +1,7 @@
+import type { Track } from "../player/track.js"
+
+export type { Track }
+
 export type PopularItemType = "tracks" | "albums" | "artists" | "playlists"
 
 export type PopularItem = {
@@ -5,15 +9,6 @@ export type PopularItem = {
   id: string | number
   title: string
   artistName?: string
-}
-
-export type Track = {
-  id: number
-  title: string
-  artistName: string
-  albumTitle?: string
-  durationSeconds?: number
-  albumCoverUrl?: string
 }
 
 export type StreamInfo = {
