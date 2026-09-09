@@ -11,6 +11,9 @@ Spikes are **throwaway experiments** that validate risky assumptions before buil
 | Stream URL | **Done** — see [SPIKE_RESULTS.md](./SPIKE_RESULTS.md) | agent | [Stream URL spike](#stream-url-spike) |
 | Discord voice | **Done** — see [SPIKE_RESULTS.md](./SPIKE_RESULTS.md) | agent | [Voice spike](#voice-spike) |
 | `@kud/qobuz` evaluation | **Done** — see [SPIKE_RESULTS.md](./SPIKE_RESULTS.md) | agent | [Package spike](#package-spike) |
+| Ohdio catch-up HLS | **Done** — see [SPIKE_RESULTS.md](./SPIKE_RESULTS.md) | agent | [Ohdio spike](#ohdio-spike) |
+| Ohdio live | **Done** — see [SPIKE_RESULTS.md](./SPIKE_RESULTS.md) | agent | [Ohdio live spike](#ohdio-live-spike) |
+| Ohdio Discord HLS | **Done** — see [SPIKE_RESULTS.md](./SPIKE_RESULTS.md) | agent | [Ohdio voice spike](#ohdio-voice-spike) |
 
 Record results in [SPIKE_RESULTS.md](./SPIKE_RESULTS.md) after each spike.
 
@@ -234,6 +237,91 @@ Minimal script: join voice, pipe ffmpeg stdout to `createAudioResource`, play 30
 | Auto `app_id` from bundle | Nice | Yes |
 
 Fill the last column during search + stream URL spikes. If stream signing is missing, use `@kud/qobuz` for search only and ~100 lines for `getFileUrl` in `src/qobuz/stream.ts`.
+
+---
+
+## Ohdio spike
+
+**Goal:** Catch-up audio for an Ohdio episode URL — GraphQL BFF → MediaNet `validation/v2` → HLS that ffmpeg can read.
+
+Already known before this spike (do not re-prove): public GraphQL at `https://services.radio-canada.ca/bff/audio/graphql`; episode + media ids; MediaNet HLS; podcast DRM `tokenId: null`. Premiere shows expose several **cues** that often share a mediaId (hour file + `mediaSeekTime`).
+
+Test URLs:
+
+```
+https://ici.radio-canada.ca/ohdio/musique/emissions/cosmopolite/episodes/1173568/vendredi-21-aout-2026
+https://ici.radio-canada.ca/ohdio/premiere/emissions/penelope/episodes/1091696/mercredi-3-juin-2026
+```
+
+### What you are answering
+
+| Question | How you'll know |
+|----------|-----------------|
+| Does `episodeById` + `playbackListByGlobalId` return playable mediaIds? | GraphQL `mediaId` (not the episode id) |
+| Does Cosmopolite have 1 file or N like Pénélopé? | unique `mediaId`s, not raw `items.length` |
+| Are Premiere cues separate files or seek points? | `mediaSeekTime` on shared mediaId |
+| Is catch-up DRM-free for ffmpeg? | `validation/v2` `tokenId` + ffprobe/ffmpeg |
+| How short-lived is the HLS URL? | Akamai `hdnea` `exp - st` |
+
+### Suggested approach
+
+```bash
+node spikes/ohdio/run.mjs
+node spikes/ohdio/run.mjs 'https://ici.radio-canada.ca/ohdio/.../episodes/{id}/{slug}'
+```
+
+Path: URL episode id → GraphQL (`contentTypeId` **18**) → each `mediaPlaybackItem.mediaId` → `media/validation/v2` (`appCode=medianet`, `tech=hls`) → ffprobe + `ffmpeg -t 3`. Collapse consecutive identical mediaIds; `ffmpeg -ss {mediaSeekTime}` for cue skip.
+
+Do not use `playlistItemId.mediaId` from the page as the only source — it can be `null` while `header.media2.id` / the playback list still have the MediaNet id.
+
+### Pass / fail criteria
+
+| Outcome | Implication |
+|---------|-------------|
+| HLS + ffmpeg pass for every unique mediaId | Same ffmpeg pipe as Qobuz can ingest Ohdio catch-up; fetch URL immediately before play |
+| `tokenId` non-null **and** ffmpeg fails | Treat as DRM; drop catch-up |
+| Several unique mediaIds | Queue one resource per **file**, not per cue |
+| Cues share a mediaId | Use `mediaSeekTime` (`-ss`) if starting mid-hour |
+
+---
+
+## Ohdio live spike
+
+**Goal:** ICI Première (and other Ohdio networks) **live** HLS that ffmpeg can read.
+
+Catch-up `appCode=medianet` requires a **numeric** mediaId. Live uses a **call sign** with `appCode=medianetlive`.
+
+```bash
+node spikes/ohdio/live.mjs              # ICI Première, regionId 8 (Montréal → cbf)
+node spikes/ohdio/live.mjs musique      # ICI Musique (cbfx)
+node spikes/ohdio/live.mjs --all        # every network in the region
+```
+
+Path: GraphQL `liveSchedules(regionId)` → `broadcastingStationCodeName` (call sign) → `validation/v2` `appCode=medianetlive` → ffprobe + `ffmpeg -t 3`.
+
+| Outcome | Implication |
+|---------|-------------|
+| Live HLS + ffmpeg pass | `/play` can take a live network URL/call sign; same PCM pipe |
+| Call sign fails on `medianet` | Do not reuse catch-up validation params for live |
+| Region changes the call sign | Default region 8 (Montréal); map Discord guild → region later if needed |
+
+---
+
+## Ohdio voice spike
+
+**Goal:** Ohdio HLS → ffmpeg s16le 48 kHz → `@discordjs/voice`, including sequential unique catch-up files and optional live.
+
+Depends on: catch-up + live ffmpeg pass + `DISCORD_TOKEN`.
+
+```bash
+node spikes/ohdio/voice.mjs          # 2 unique Pénélopé hours, 8s each
+node spikes/ohdio/voice.mjs --live   # then 8s of ICI Première live
+```
+
+Same pipeline as the Qobuz voice spike. Re-fetch `validation/v2` immediately before each file (catch-up `hdnea` TTL can be 120s).
+
+**Pass:** connection Ready, player Playing, no ffmpeg/player errors; human confirms audio.  
+**Fail:** try without `-re`; check DAVE (`@snazzah/davey`) same as Qobuz voice spike.
 
 ---
 

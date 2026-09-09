@@ -1,0 +1,20 @@
+{
+  "name": "ohdio",
+  "version": "1.0.0",
+  "description": "Spike — Ohdio catch-up, live, and Discord HLS voice",
+  "type": "module",
+  "scripts": {
+    "start": "node run.mjs",
+    "live": "node live.mjs",
+    "voice": "node voice.mjs"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "@snazzah/davey": "^0.1.12",
+    "discord.js": "^14.27.0",
+    "dotenv": "^17.4.2",
+    "libsodium-wrappers": "^0.8.4",
+    "opusscript": "^0.1.1"
+  }
+}
