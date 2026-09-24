@@ -70,7 +70,9 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
     onTrackStart: async (guildId, track, textChannelId) => {
       const state = player.getPlaybackState(guildId)
       await Promise.all([
-        updateNowPlaying(client, nowPlayingMessages, guildId, track, state, textChannelId),
+        updateNowPlaying(client, nowPlayingMessages, guildId, track, state, textChannelId, {
+          repost: true,
+        }),
         presence.setTrack(guildId, track, state.paused),
       ])
     },

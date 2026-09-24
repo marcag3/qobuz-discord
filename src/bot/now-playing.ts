@@ -12,7 +12,8 @@ export async function updateNowPlaying(
   guildId: string,
   track: Track,
   state: PlaybackState,
-  textChannelId: string | null
+  textChannelId: string | null,
+  options?: { repost?: boolean }
 ): Promise<void> {
   if (!textChannelId) return
 
@@ -24,7 +25,7 @@ export async function updateNowPlaying(
   const existing = registry.get(guildId)
   const textChannel = channel as TextChannel
 
-  if (existing && existing.channelId === textChannelId) {
+  if (!options?.repost && existing && existing.channelId === textChannelId) {
     const message = await textChannel.messages.fetch(existing.messageId).catch(() => null)
     if (message) {
       await message.edit({ embeds: [embed], components: rows }).catch(() => undefined)
