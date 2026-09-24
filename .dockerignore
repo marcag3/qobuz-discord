@@ -5,6 +5,7 @@ dist
 # Secrets and local env
 .env
 .env.*
+data
 
 # Git, CI, and editor
 .git

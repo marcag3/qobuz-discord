@@ -1,12 +1,4 @@
-import {
-  connect,
-  createMemoryStore,
-  createTransport,
-  fetchAppId,
-  validateCredentials,
-  type Transport,
-} from "@kud/qobuz"
-import type { AppConfig } from "../config.js"
+import { connect, createMemoryStore, createTransport, type Transport } from "@kud/qobuz"
 import { QobuzError } from "./types.js"
 
 export type AuthSession = {
@@ -15,12 +7,11 @@ export type AuthSession = {
   transport: Transport
 }
 
-export async function createAuthSession(config: AppConfig): Promise<AuthSession> {
-  const token = config.qobuzUserToken
+export async function createAuthSession(token: string, appId?: string): Promise<AuthSession> {
   const store = createMemoryStore()
 
   try {
-    await connect({ token, store })
+    await connect({ token, appId, store })
   } catch (err) {
     throw toQobuzError(err, "Failed to connect to Qobuz")
   }
@@ -37,25 +28,25 @@ export async function createAuthSession(config: AppConfig): Promise<AuthSession>
   }
 }
 
-export async function validateToken(config: AppConfig): Promise<string> {
-  const { appId } = await fetchAppId()
-  try {
-    await validateCredentials({ appId, token: config.qobuzUserToken })
-  } catch (err) {
-    throw toQobuzError(err, "Invalid Qobuz token — refresh QOBUZ_USER_TOKEN in .env")
-  }
-  return appId
-}
-
 export function toQobuzError(err: unknown, fallback: string): QobuzError {
   if (err instanceof QobuzError) return err
 
   const status = getStatus(err)
   const message = err instanceof Error ? err.message : fallback
   const kind =
-    status === 401 || (err as { kind?: string })?.kind === "auth" ? "auth" : "unknown"
+    status === 401 || (err as { kind?: string })?.kind === "auth"
+      ? "auth"
+      : isNetworkFailure(err)
+        ? "network"
+        : "unknown"
 
   return new QobuzError(message || fallback, { status, kind })
+}
+
+export function isNetworkFailure(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  if (err.name === "AbortError" || err.name === "TimeoutError") return true
+  return err instanceof TypeError && /fetch failed/i.test(err.message)
 }
 
 function getStatus(err: unknown): number | undefined {

@@ -8,7 +8,8 @@ import {
 } from "discord.js"
 import "@snazzah/davey"
 import type { AppConfig } from "../config.js"
-import { createQobuzClient } from "../qobuz/client.js"
+import { createQobuzClient, type QobuzService } from "../qobuz/client.js"
+import { createCredentialStore } from "../qobuz/credential-store.js"
 import { createOhdioClient } from "../ohdio/client.js"
 import { createStreamResolver } from "../catalog/resolve.js"
 import { GuildPlayerManager } from "../player/guild-manager.js"
@@ -25,6 +26,15 @@ import { createPresenceManager } from "./presence.js"
 import { registerCommands } from "./register-commands.js"
 import { ensureCanControl } from "./control-guard.js"
 import { userFacingError } from "./errors.js"
+import {
+  handleQobuzAuthButton,
+  handleQobuzAuthCommand,
+  handleQobuzAuthModal,
+  type QobuzAuthContext,
+} from "./commands/qobuz-auth.js"
+import { isQobuzAuthId } from "./qobuz-auth-panel.js"
+import { createOwnerResolver } from "./owner.js"
+import { createQobuzChannelNotices, startQobuzOwnerAlerts } from "./qobuz-alerts.js"
 
 export type BotHandle = {
   shutdown: () => Promise<void>
@@ -33,8 +43,15 @@ export type BotHandle = {
 const AUTO_DISCONNECT_MS = 60_000
 
 export async function startBot(config: AppConfig): Promise<BotHandle> {
-  const qobuz = createQobuzClient(config)
-  await qobuz.init()
+  const qobuz = createQobuzClient(config, {
+    store: createCredentialStore(config.qobuzCredentialsPath),
+  })
+  const qobuzReady = await qobuz.init()
+  if (!qobuzReady) {
+    console.warn(
+      "Starting without Qobuz — /ohdio and Ohdio URLs in /play still work; the bot owner can fix Qobuz with /qobuz-auth"
+    )
+  }
   const ohdio = createOhdioClient({ regionId: config.ohdioRegionId })
 
   const queueManager = new QueueManager()
@@ -45,6 +62,9 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
   })
   const presence = createPresenceManager(client)
+  const auth: QobuzAuthContext = { qobuz, owners: createOwnerResolver(client, config.ownerIds) }
+  const noticeQobuzFailure = createQobuzChannelNotices(client, qobuz)
+  let stopOwnerAlerts: (() => void) | null = null
 
   const player = new GuildPlayerManager(createStreamResolver(qobuz, ohdio), queueManager, {
     onTrackStart: async (guildId, track, textChannelId) => {
@@ -71,17 +91,19 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
         presence.updateState(guildId, state),
       ])
     },
-    onError: async (guildId, error) => {
+    onError: async (guildId, error, textChannelId) => {
       console.error(`Playback error in ${guildId}:`, error.message)
+      await noticeQobuzFailure(guildId, error, textChannelId)
     },
   })
 
   client.once("clientReady", () => {
     console.log(`Logged in as ${client.user?.tag}`)
+    stopOwnerAlerts = startQobuzOwnerAlerts(client, qobuz, auth.owners)
   })
 
   client.on("interactionCreate", (interaction) => {
-    void handleInteraction(interaction, qobuz, ohdio, player)
+    void handleInteraction(interaction, qobuz, ohdio, player, auth)
   })
 
   client.on("voiceStateUpdate", (oldState, newState) => {
@@ -97,6 +119,8 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
         clearTimeout(timer)
       }
       emptyChannelTimers.clear()
+      stopOwnerAlerts?.()
+      qobuz.dispose()
       await player.shutdown()
       await presence.clear()
       client.destroy()
@@ -149,13 +173,24 @@ async function handleVoiceStateUpdate(
 
 async function handleInteraction(
   interaction: Interaction,
-  qobuz: ReturnType<typeof createQobuzClient>,
+  qobuz: QobuzService,
   ohdio: ReturnType<typeof createOhdioClient>,
-  player: GuildPlayerManager
+  player: GuildPlayerManager,
+  auth: QobuzAuthContext
 ): Promise<void> {
   try {
     if (interaction.isAutocomplete()) {
       await handleAutocomplete(interaction, qobuz, ohdio)
+      return
+    }
+
+    if (interaction.isModalSubmit()) {
+      await handleQobuzAuthModal(interaction, auth)
+      return
+    }
+
+    if (interaction.isButton() && isQobuzAuthId(interaction.customId)) {
+      await handleQobuzAuthButton(interaction, auth)
       return
     }
 
@@ -175,6 +210,9 @@ async function handleInteraction(
           break
         case "stop":
           await handleStop(interaction, player)
+          break
+        case "qobuz-auth":
+          await handleQobuzAuthCommand(interaction, auth)
           break
       }
       return

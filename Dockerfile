@@ -26,7 +26,9 @@ RUN npm ci --omit=dev \
 
 COPY --from=build /app/dist ./dist
 
-RUN chown -R node:node /app
+RUN mkdir -p /app/data \
+  && chmod 700 /app/data \
+  && chown -R node:node /app
 USER node
 
 ENV NODE_ENV=production

@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto"
 import { fetchAppId } from "@kud/qobuz"
-import type { AppConfig } from "../config.js"
 import { QOBUZ_BASE_URL, QOBUZ_USER_AGENT } from "./constants.js"
 import { toQobuzError } from "./auth.js"
 import { assertAllowedStreamUrl } from "./stream-url.js"
@@ -55,50 +54,104 @@ export function deriveSecretsFromBundle(bundle: string): Array<{ tz: string; sec
   return derived
 }
 
-export async function resolveAppCredentials(
-  config: AppConfig,
-  probeTrackId = 54091881
-): Promise<{ appId: string; appSecret: string }> {
-  if (config.qobuzAppId && config.qobuzAppSecret) {
-    return { appId: config.qobuzAppId, appSecret: config.qobuzAppSecret }
-  }
+export type BundleInfo = { appId: string; bundlePath: string }
 
-  const { appId, bundlePath } = await fetchAppId()
-  const res = await fetch(`https://play.qobuz.com${bundlePath}`, {
-    headers: { "User-Agent": QOBUZ_USER_AGENT },
-  })
+export type ResolvedAppCredentials = {
+  appId: string
+  appSecret: string
+  secretSource: "configured" | "derived"
+}
+
+export type ResolveAppCredentialsOptions = {
+  getBundleInfo?: () => Promise<BundleInfo>
+  fetchBundle?: (bundlePath: string) => Promise<string>
+  probe?: (creds: QobuzCredentials) => Promise<unknown>
+}
+
+// Must be a track that returns a stream URL for this account (54091881 is sample-restricted).
+const PROBE_TRACK_ID = 39_696_138
+
+export async function fetchBundleInfo(): Promise<BundleInfo> {
+  try {
+    return await fetchAppId()
+  } catch (err) {
+    throw toQobuzError(err, "Failed to load the Qobuz web player")
+  }
+}
+
+async function fetchBundle(bundlePath: string): Promise<string> {
+  let res: Response
+  try {
+    res = await fetch(`https://play.qobuz.com${bundlePath}`, {
+      headers: { "User-Agent": QOBUZ_USER_AGENT },
+    })
+  } catch (err) {
+    throw toQobuzError(err, "Network error fetching Qobuz bundle")
+  }
   if (!res.ok) {
-    throw toQobuzError(new Error(`bundle fetch failed (${res.status})`), "Failed to fetch Qobuz bundle")
+    throw new QobuzError(`Qobuz bundle fetch failed (${res.status})`, { status: res.status })
   }
+  return res.text()
+}
 
-  const bundle = await res.text()
-  const derived = deriveSecretsFromBundle(bundle)
-  if (derived.length === 0) {
-    throw toQobuzError(
-      new Error("could not derive app_secret"),
-      "Could not derive app_secret — set QOBUZ_APP_SECRET in .env"
-    )
-  }
+function probeSecret(creds: QobuzCredentials): Promise<StreamInfo> {
+  return fetchStreamUrl({ ...creds, trackId: PROBE_TRACK_ID, formatId: 5 })
+}
 
-  for (const { secret } of derived) {
+export async function resolveAppCredentials(
+  input: { token: string; appId?: string; appSecret?: string },
+  options: ResolveAppCredentialsOptions = {}
+): Promise<ResolvedAppCredentials> {
+  const getBundleInfo = options.getBundleInfo ?? fetchBundleInfo
+  const loadBundle = options.fetchBundle ?? fetchBundle
+  const probe = options.probe ?? probeSecret
+  const { token } = input
+
+  let configuredRejected = false
+  if (input.appSecret) {
+    const appId = input.appId ?? (await getBundleInfo()).appId
     try {
-      await fetchStreamUrl({
-        appId,
-        appSecret: secret,
-        token: config.qobuzUserToken,
-        trackId: probeTrackId,
-        formatId: 5,
-      })
-      return { appId, appSecret: secret }
-    } catch {
-      // try next secret
+      await probe({ appId, appSecret: input.appSecret, token })
+      return { appId, appSecret: input.appSecret, secretSource: "configured" }
+    } catch (err) {
+      const error = toQobuzError(err, "Configured Qobuz app secret failed")
+      if (!QobuzError.isSignatureError(error)) throw error
+      configuredRejected = true
+      console.warn("Configured Qobuz app secret was rejected; trying secrets derived from the web bundle")
     }
   }
 
-  throw toQobuzError(
-    new Error("no secret worked"),
-    "No derived app_secret worked — refresh QOBUZ_USER_TOKEN from browser"
+  const { appId, bundlePath } = await getBundleInfo()
+  const derived = deriveSecretsFromBundle(await loadBundle(bundlePath))
+  if (derived.length === 0) {
+    throw new QobuzError("Could not derive an app secret from the Qobuz web bundle", {
+      kind: "signature",
+    })
+  }
+
+  let otherFailure: QobuzError | undefined
+  for (const { secret } of derived) {
+    try {
+      await probe({ appId, appSecret: secret, token })
+      return { appId, appSecret: secret, secretSource: "derived" }
+    } catch (err) {
+      const error = toQobuzError(err, "Qobuz stream probe failed")
+      if (QobuzError.isAuthError(error) || QobuzError.isNetworkError(error)) throw error
+      if (!QobuzError.isSignatureError(error)) otherFailure = error
+    }
+  }
+
+  if (otherFailure) throw otherFailure
+  throw new QobuzError(
+    configuredRejected
+      ? "Qobuz rejected the configured app secret and every secret derived from the web bundle"
+      : "Qobuz rejected every app secret derived from the web bundle",
+    { kind: "signature", status: 400 }
   )
+}
+
+export function isSignatureRejection(status: number, body: string): boolean {
+  return status === 400 && /request_sig|signature/i.test(body)
 }
 
 export async function fetchStreamUrl(
@@ -131,7 +184,8 @@ export async function fetchStreamUrl(
 
   const body = await res.text()
   if (!res.ok) {
-    const kind = res.status === 401 ? "auth" : "unknown"
+    const kind =
+      res.status === 401 ? "auth" : isSignatureRejection(res.status, body) ? "signature" : "unknown"
     console.error(`getFileUrl failed (${res.status}):`, body.slice(0, 200))
     throw new QobuzError("Failed to fetch stream URL", {
       status: res.status,
@@ -139,9 +193,17 @@ export async function fetchStreamUrl(
     })
   }
 
-  const parsed = JSON.parse(body) as { url?: string; mime_type?: string }
+  const parsed = JSON.parse(body) as {
+    url?: string
+    mime_type?: string
+    restrictions?: Array<{ code?: string }>
+  }
   if (!parsed.url) {
-    throw toQobuzError(new Error("no url"), "Qobuz returned no stream URL")
+    const restricted = parsed.restrictions?.some((r) => r.code?.includes("Restricted"))
+    throw new QobuzError(
+      restricted ? "Track is not streamable for this account" : "Qobuz returned no stream URL",
+      { status: res.status, kind: restricted ? "unknown" : "unknown" }
+    )
   }
 
   assertAllowedStreamUrl(parsed.url)

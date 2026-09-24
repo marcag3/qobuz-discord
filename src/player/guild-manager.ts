@@ -38,7 +38,7 @@ export type PlaybackCallbacks = {
     textChannelId: string | null,
     disconnected: boolean
   ) => void | Promise<void>
-  onError?: (guildId: string, error: Error) => void | Promise<void>
+  onError?: (guildId: string, error: Error, textChannelId: string | null) => void | Promise<void>
   onPlaybackStateChange?: (
     guildId: string,
     textChannelId: string | null,
@@ -282,7 +282,7 @@ export class GuildPlayerManager {
     })
 
     player.on("error", (err) => {
-      void this.callbacks.onError?.(guildId, err)
+      void this.callbacks.onError?.(guildId, err, this.sessions.get(guildId)?.textChannelId ?? null)
       void this.playNext(guildId)
     })
 
@@ -411,7 +411,7 @@ export class GuildPlayerManager {
       await this.callbacks.onTrackStart?.(guildId, track, session.textChannelId)
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err))
-      await this.callbacks.onError?.(guildId, error)
+      await this.callbacks.onError?.(guildId, error, session.textChannelId)
       session.currentTrack = null
       await this.playNext(guildId)
     }

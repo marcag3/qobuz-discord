@@ -51,7 +51,14 @@ services:
     container_name: qobuz-discord
     restart: unless-stopped
     env_file: .env
+    volumes:
+      - bot-data:/app/data
+
+volumes:
+  bot-data:
 ```
+
+The `bot-data` volume keeps credentials saved with `/qobuz-auth` across restarts and image updates.
 
 ### `.env`
 
@@ -66,7 +73,10 @@ QOBUZ_USER_TOKEN=
 |----------|----------|-------------|
 | `DISCORD_TOKEN` | Yes | Bot token from the [Discord Developer Portal](https://discord.com/developers/applications) |
 | `DISCORD_CLIENT_ID` | Yes | Application ID (same portal) |
-| `QOBUZ_USER_TOKEN` | Yes | Browser session token — see below |
+| `QOBUZ_USER_TOKEN` | No | Browser session token — see below. Can also be set later from Discord with `/qobuz-auth`. |
+| `OWNER_ID` | No | Discord user ID(s), comma-separated, allowed to use `/qobuz-auth` and receive Qobuz alerts. Defaults to the application owner in the Developer Portal. |
+| `QOBUZ_APP_ID` / `QOBUZ_APP_SECRET` | No | Pin a stream-signing pair. If Qobuz rejects it, the bot falls back to secrets derived from the web player. |
+| `QOBUZ_CREDENTIALS_PATH` | No | Where `/qobuz-auth` saves credentials (default `data/qobuz-credentials.json`) |
 | `GUILD_ID` | No | Register slash commands to one guild only (faster while testing) |
 | `OHDIO_REGION_ID` | No | Live radio region (default `8` = Montréal). Catch-up URLs work without this. |
 
@@ -77,7 +87,21 @@ QOBUZ_USER_TOKEN=
 3. Trigger any action that hits the Qobuz API (e.g. play a track).
 4. Find a **POST** request to `api.json` and copy the `X-User-Auth-Token` header value into `QOBUZ_USER_TOKEN`.
 
-The token expires periodically. When API calls start returning 401, repeat the steps above.
+The token expires periodically. You don't need to edit `.env` or restart when it does. See [Fixing Qobuz from Discord](#fixing-qobuz-from-discord).
+
+#### Fixing Qobuz from Discord
+
+If Qobuz stops working, the bot keeps running: Ohdio still plays, and users get a short explanation instead of a generic error. The bot owner gets a DM with a status panel. You can also open the panel any time with `/qobuz-auth`, in a server or in a DM with the bot.
+
+| Panel state | What to do |
+|-------------|------------|
+| **Token rejected** | Copy a fresh token (steps above) and press **Update credentials** |
+| **App secret rejected** | Press **Re-derive secret**. If Qobuz changed its web player, paste a known-good app ID and secret instead. |
+| **Qobuz unreachable** | Nothing: the bot retries automatically (1, 5, 15, then every 30 minutes) |
+
+New credentials are checked against Qobuz before they're used. If the check fails, nothing is changed. Working credentials are saved to `QOBUZ_CREDENTIALS_PATH` with owner-only file permissions and take precedence over `.env`. Press **Clear saved (use .env)** to go back to `.env`.
+
+Only `OWNER_ID` (or the application owner) can use the panel, even if other server members are admins. Tokens are entered in a Discord modal, so they never appear in a channel, and the bot only ever shows their last four characters.
 
 ### Start
 
@@ -119,6 +143,7 @@ Add the bot to your server, join a voice channel, and run `/play` or `/ohdio`.
 | `/skip` | Skip to the next track |
 | `/queue` | Show upcoming tracks |
 | `/stop` | Stop playback and clear the queue |
+| `/qobuz-auth` | Bot owner only: Qobuz status and credential updates |
 
 Anyone in the server can control playback.
 
@@ -184,7 +209,7 @@ Build and run the container from source:
 
 ```bash
 docker build -t qobuz-discord .
-docker run -d --name qobuz-discord --env-file .env --restart unless-stopped qobuz-discord
+docker run -d --name qobuz-discord --env-file .env -v qobuz-data:/app/data --restart unless-stopped qobuz-discord
 ```
 
 Integration tests (live Qobuz API, requires `QOBUZ_USER_TOKEN`):

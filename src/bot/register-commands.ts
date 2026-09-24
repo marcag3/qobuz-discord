@@ -1,4 +1,4 @@
-import { REST, Routes, SlashCommandBuilder } from "discord.js"
+import { InteractionContextType, REST, Routes, SlashCommandBuilder } from "discord.js"
 import type { AppConfig } from "../config.js"
 
 const commands = [
@@ -25,6 +25,11 @@ const commands = [
   new SlashCommandBuilder().setName("skip").setDescription("Skip the current track"),
   new SlashCommandBuilder().setName("queue").setDescription("Show the upcoming queue"),
   new SlashCommandBuilder().setName("stop").setDescription("Stop playback and clear the queue"),
+  new SlashCommandBuilder()
+    .setName("qobuz-auth")
+    .setDescription("Bot owner: check or update the Qobuz login")
+    .setDefaultMemberPermissions(0)
+    .setContexts(InteractionContextType.Guild, InteractionContextType.BotDM),
 ].map((cmd) => cmd.toJSON())
 
 export async function registerCommands(config: AppConfig): Promise<void> {

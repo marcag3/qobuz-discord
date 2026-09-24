@@ -17,8 +17,37 @@ describe("loadConfig", () => {
       guildId: "guild-1",
       qobuzAppId: undefined,
       qobuzAppSecret: undefined,
+      qobuzCredentialsPath: "data/qobuz-credentials.json",
+      ownerIds: [],
       ohdioRegionId: 8,
     })
+  })
+
+  it("parses comma-separated OWNER_ID and QOBUZ_CREDENTIALS_PATH", () => {
+    const config = loadConfig({
+      DISCORD_TOKEN: "discord-token",
+      DISCORD_CLIENT_ID: "123456789",
+      OWNER_ID: " 123456789012345678 , 223456789012345678 ",
+      QOBUZ_CREDENTIALS_PATH: "/data/creds.json",
+    })
+
+    expect(config.ownerIds).toEqual(["123456789012345678", "223456789012345678"])
+    expect(config.qobuzCredentialsPath).toBe("/data/creds.json")
+  })
+
+  it("rejects OWNER_ID values that are not Discord user IDs", () => {
+    expect(() =>
+      loadConfig({ DISCORD_TOKEN: "x", DISCORD_CLIENT_ID: "1", OWNER_ID: "marc" })
+    ).toThrow(ConfigError)
+  })
+
+  it("allows missing QOBUZ_USER_TOKEN", () => {
+    const config = loadConfig({
+      DISCORD_TOKEN: "discord-token",
+      DISCORD_CLIENT_ID: "123456789",
+    })
+
+    expect(config.qobuzUserToken).toBeUndefined()
   })
 
   it("throws when required vars are missing", () => {
