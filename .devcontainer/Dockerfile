@@ -5,6 +5,7 @@ RUN apt-get update \
     ca-certificates \
     ffmpeg \
     git \
+    openssh-client \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
