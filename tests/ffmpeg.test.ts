@@ -24,6 +24,15 @@ describe("buildPlaybackFfmpegArgs", () => {
     ])
   })
 
+  it("restricts ffmpeg to network protocols", () => {
+    const args = buildPlaybackFfmpegArgs("https://example.com/audio.m3u8")
+    expect(args.slice(args.indexOf("-protocol_whitelist"), args.indexOf("-protocol_whitelist") + 2)).toEqual([
+      "-protocol_whitelist",
+      "http,https,tls,tcp,crypto",
+    ])
+    expect(args.indexOf("-protocol_whitelist")).toBeLessThan(args.indexOf("-i"))
+  })
+
   it("seeks and sends a User-Agent before opening the input", () => {
     const args = buildPlaybackFfmpegArgs("https://cdn.example/file.m3u8", {
       seekSeconds: 117,
@@ -34,6 +43,8 @@ describe("buildPlaybackFfmpegArgs", () => {
       "-hide_banner",
       "-loglevel",
       "error",
+      "-protocol_whitelist",
+      "http,https,tls,tcp,crypto",
       "-user_agent",
       "GallantBot",
       "-ss",

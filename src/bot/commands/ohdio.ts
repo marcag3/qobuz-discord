@@ -5,6 +5,7 @@ import {
 } from "discord.js"
 import type { OhdioClient } from "../../ohdio/client.js"
 import type { GuildPlayerManager } from "../../player/guild-manager.js"
+import { ensureSameVoiceChannel } from "../control-guard.js"
 import { userFacingError } from "../errors.js"
 
 export async function handleOhdio(
@@ -23,6 +24,8 @@ export async function handleOhdio(
     })
     return
   }
+
+  if (!(await ensureSameVoiceChannel(interaction, player, channel.id))) return
 
   await interaction.deferReply()
 

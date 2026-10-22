@@ -25,6 +25,20 @@ async function replyEphemeral(
   await interaction.reply({ content, flags: MessageFlags.Ephemeral })
 }
 
+/** Blocks queueing from outside the channel the bot is already playing in. */
+export async function ensureSameVoiceChannel(
+  interaction: ChatInputCommandInteraction,
+  player: GuildPlayerManager,
+  channelId: string
+): Promise<boolean> {
+  const botChannelId = player.getVoiceChannelId(interaction.guildId!)
+  if (botChannelId && botChannelId !== channelId) {
+    await replyEphemeral(interaction, PLAYBACK_DENIED)
+    return false
+  }
+  return true
+}
+
 export async function ensureCanControl(
   interaction: ChatInputCommandInteraction | ButtonInteraction,
   player: GuildPlayerManager,

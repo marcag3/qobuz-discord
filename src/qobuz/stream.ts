@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
 import { fetchAppId } from "@kud/qobuz"
-import { QOBUZ_BASE_URL, QOBUZ_USER_AGENT } from "./constants.js"
+import { QOBUZ_BASE_URL, QOBUZ_USER_AGENT, REQUEST_TIMEOUT_MS } from "./constants.js"
 import { toQobuzError } from "./auth.js"
 import { assertAllowedStreamUrl } from "./stream-url.js"
 import { QobuzError, type QobuzCredentials, type StreamInfo } from "./types.js"
@@ -84,6 +84,7 @@ async function fetchBundle(bundlePath: string): Promise<string> {
   try {
     res = await fetch(`https://play.qobuz.com${bundlePath}`, {
       headers: { "User-Agent": QOBUZ_USER_AGENT },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
   } catch (err) {
     throw toQobuzError(err, "Network error fetching Qobuz bundle")
@@ -177,6 +178,7 @@ export async function fetchStreamUrl(
         "X-App-Id": creds.appId,
         "X-User-Auth-Token": creds.token,
       },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
   } catch (err) {
     throw toQobuzError(err, "Network error fetching stream URL")

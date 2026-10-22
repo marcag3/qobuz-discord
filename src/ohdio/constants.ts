@@ -1,6 +1,9 @@
 export const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+/** Upper bound for any single outbound HTTP request. */
+export const REQUEST_TIMEOUT_MS = 15_000
+
 export const GRAPHQL_URL = "https://services.radio-canada.ca/bff/audio/graphql"
 export const VALIDATION_URL = "https://services.radio-canada.ca/media/validation/v2/"
 

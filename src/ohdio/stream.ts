@@ -1,4 +1,4 @@
-import { APP_CODE, USER_AGENT, VALIDATION_URL } from "./constants.js"
+import { APP_CODE, REQUEST_TIMEOUT_MS, USER_AGENT, VALIDATION_URL } from "./constants.js"
 import { OhdioError } from "./errors.js"
 import { assertAllowedOhdioStreamUrl, normalizeOhdioStreamUrl } from "./stream-url.js"
 import type { StreamInfo } from "../player/stream.js"
@@ -27,6 +27,7 @@ export async function validateMedia(
   try {
     res = await fetch(url, {
       headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
   } catch {
     throw new OhdioError("Network error fetching Ohdio stream", { kind: "network" })

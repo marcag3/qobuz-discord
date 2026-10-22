@@ -18,11 +18,15 @@ export const PCM_PREFETCH_SECONDS = 4
  */
 export const MAX_MISSED_FRAMES = 250
 
+export const FFMPEG_PROTOCOL_WHITELIST = "http,https,tls,tcp,crypto"
+
 export function buildPlaybackFfmpegArgs(
   url: string,
   options: { seekSeconds?: number; userAgent?: string } = {}
 ): string[] {
-  const args = ["-hide_banner", "-loglevel", "error"]
+  // Stream URLs are allowlisted upstream, but HLS playlists can reference other URLs:
+  // never let ffmpeg open local files or other protocols from them.
+  const args = ["-hide_banner", "-loglevel", "error", "-protocol_whitelist", FFMPEG_PROTOCOL_WHITELIST]
   if (options.userAgent) {
     args.push("-user_agent", options.userAgent)
   }

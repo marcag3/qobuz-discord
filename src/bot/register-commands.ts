@@ -11,7 +11,8 @@ const commands = [
         .setDescription("Search query, Qobuz URL, or Ohdio URL")
         .setRequired(true)
         .setAutocomplete(true)
-    ),
+    )
+    .setContexts(InteractionContextType.Guild),
   new SlashCommandBuilder()
     .setName("ohdio")
     .setDescription("Play Ohdio catch-up, live radio, or search")
@@ -21,10 +22,11 @@ const commands = [
         .setDescription("Ohdio search, show, episode URL, or ICI Première / Musique")
         .setRequired(true)
         .setAutocomplete(true)
-    ),
-  new SlashCommandBuilder().setName("skip").setDescription("Skip the current track"),
-  new SlashCommandBuilder().setName("queue").setDescription("Show the upcoming queue"),
-  new SlashCommandBuilder().setName("stop").setDescription("Stop playback and clear the queue"),
+    )
+    .setContexts(InteractionContextType.Guild),
+  new SlashCommandBuilder().setName("skip").setDescription("Skip the current track").setContexts(InteractionContextType.Guild),
+  new SlashCommandBuilder().setName("queue").setDescription("Show the upcoming queue").setContexts(InteractionContextType.Guild),
+  new SlashCommandBuilder().setName("stop").setDescription("Stop playback and clear the queue").setContexts(InteractionContextType.Guild),
   new SlashCommandBuilder()
     .setName("qobuz-auth")
     .setDescription("Bot owner: check or update the Qobuz login")

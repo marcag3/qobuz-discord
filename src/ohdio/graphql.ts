@@ -1,4 +1,4 @@
-import { GRAPHQL_URL, OHDIO_ORIGIN, USER_AGENT } from "./constants.js"
+import { GRAPHQL_URL, OHDIO_ORIGIN, REQUEST_TIMEOUT_MS, USER_AGENT } from "./constants.js"
 import { OhdioError } from "./errors.js"
 
 export async function graphql<T>(
@@ -19,6 +19,7 @@ export async function graphql<T>(
         "x-apollo-operation-name": operationName,
       },
       body: JSON.stringify({ query, variables, operationName }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
   } catch {
     throw new OhdioError("Network error talking to Ohdio", { kind: "network" })

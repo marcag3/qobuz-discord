@@ -60,6 +60,8 @@ export async function startBot(config: AppConfig): Promise<BotHandle> {
 
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+    // Track titles come from third parties: never let them ping anyone.
+    allowedMentions: { parse: [] },
   })
   const presence = createPresenceManager(client)
   const auth: QobuzAuthContext = { qobuz, owners: createOwnerResolver(client, config.ownerIds) }

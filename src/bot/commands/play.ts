@@ -7,6 +7,7 @@ import type { OhdioClient } from "../../ohdio/client.js"
 import { resolvePlayQuery } from "../../catalog/resolve.js"
 import type { GuildPlayerManager } from "../../player/guild-manager.js"
 import type { QobuzService } from "../../qobuz/client.js"
+import { ensureSameVoiceChannel } from "../control-guard.js"
 import { userFacingError } from "../errors.js"
 
 export async function handlePlay(
@@ -26,6 +27,8 @@ export async function handlePlay(
     })
     return
   }
+
+  if (!(await ensureSameVoiceChannel(interaction, player, channel.id))) return
 
   await interaction.deferReply()
 
