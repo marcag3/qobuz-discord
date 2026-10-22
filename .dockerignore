@@ -22,8 +22,7 @@ eslint.config.js
 vitest.config.ts
 vitest.integration.config.ts
 
-# Spikes, compose, and Docker metadata (not copied into the image)
-spikes
+# Compose and Docker metadata (not copied into the image)
 docker-compose.yml
 Dockerfile
 .dockerignore

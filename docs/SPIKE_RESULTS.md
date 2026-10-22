@@ -2,6 +2,8 @@
 
 Record outcomes here after each spike session. The implementation agent reads this before Phase 1.
 
+> The `spikes/` scripts cited in the **Method** lines below were removed once Phase 0 completed; retrieve them from git history if needed.
+
 ---
 
 ## Search spike

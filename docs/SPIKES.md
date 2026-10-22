@@ -2,6 +2,8 @@
 
 Spikes are **throwaway experiments** that validate risky assumptions before building the full bot. Code in `spikes/` is not production — it exists to answer yes/no questions cheaply.
 
+> **Note:** the `spikes/` scripts referenced below were removed once Phase 0 completed. They remain available in git history (commits before the one that deleted `spikes/`); findings are kept in [SPIKE_RESULTS.md](./SPIKE_RESULTS.md).
+
 **Current status**
 
 | Spike | Status | Owner | Doc section |

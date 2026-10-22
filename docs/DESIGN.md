@@ -435,8 +435,6 @@ qobuz-discord/
 │   ├── SPIKES.md
 │   ├── SPIKE_RESULTS.md
 │   └── handoff.md
-├── spikes/                # throwaway Phase 0 scripts (not production)
-│   └── search/
 ├── src/                   # Phase 1+ (not created yet)
 │   ├── index.ts
 │   ├── config.ts
@@ -460,7 +458,7 @@ Implementation starts **after** Phase 0 spikes. See [SPIKES.md](./SPIKES.md).
 
 ### Phase 0 — Spikes ✅ complete
 
-Validate assumptions with throwaway scripts in `spikes/`. Record results in [SPIKE_RESULTS.md](./SPIKE_RESULTS.md).
+Validate assumptions with throwaway scripts (since removed from the repo; see the note in [SPIKES.md](./SPIKES.md)). Record results in [SPIKE_RESULTS.md](./SPIKE_RESULTS.md).
 
 | Spike | Status |
 |-------|--------|

@@ -2,4 +2,3 @@
 data/
 node_modules/
 dist/
-spikes/**/node_modules/
