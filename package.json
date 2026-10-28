@@ -14,7 +14,7 @@
     "lint": "eslint src tests"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=26"
   },
   "license": "ISC",
   "dependencies": {
